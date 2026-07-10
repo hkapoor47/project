@@ -3,6 +3,8 @@ const mongoose=require('mongoose');
 const cors=require('cors');
 const auth=require('./middleware/authMiddleware');
 const app=express();
+const PORT = process.env.PORT ||5000;
+require("dotenv").config();
 
 app.use(express.json());
 app.use(cors());
@@ -11,12 +13,14 @@ app.get("/profile",auth,(req,res)=>{
 });
 
 
-mongoose.connect("mongodb://127.0.0.1:27017/authDB").then(()=>{
+mongoose.connect(process.env.MONGO_URI).then(()=>{
     console.log("MongoDb connected successfully");
+}).catch((err)=>{
+    console.log(err);
 });
 
 
 app.use("/api/auth",require("./routes/auth"));
-app.listen(5000,()=>{
-    console.log("Server is running on port 5000");
+app.listen(PORT,()=>{
+    console.log(`Server is running on port ${PORT}`);
 });
