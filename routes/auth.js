@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
+const auth = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
@@ -72,7 +73,7 @@ router.post('/login', async (req, res) => {
     }
 });
 
-router.get("/me",  async (req, res) => {
+router.get("/me", auth, async (req, res) => {
     try {
         const user = await User
             .findById(req.user.id)
