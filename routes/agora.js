@@ -10,7 +10,7 @@ router.get("/token", (req, res) => {
 
     const appId = process.env.AGORA_APP_ID;
     const appCertificate = process.env.AGORA_APP_CERTIFICATE;
-
+    console.log("App ID:", appId);
     const role = RtcRole.PUBLISHER;
 
     const expirationTimeInSeconds = 3600;
