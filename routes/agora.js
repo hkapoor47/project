@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { RtcTokenBuilder, RtcRole } = require("agora-access-token");
+const { RtcTokenBuilder, RtcRole } = require("agora-token");
 
 router.get("/token", (req, res) => {
 
