@@ -9,6 +9,9 @@ async function startSpeechToText(channel, uid) {
     const appId = process.env.AGORA_APP_ID;
     const appCertificate = process.env.AGORA_APP_CERTIFICATE;
    
+     if (!customerId || !customerSecret || !appId || !appCertificate) {
+    throw new Error("Missing Agora environment variables.");
+  }
     const auth = Buffer.from(`${customerId}:${customerSecret}`).toString("base64");
    
     const role = RtcRole.PUBLISHER;
@@ -39,7 +42,7 @@ async function startSpeechToText(channel, uid) {
     const body = { 
         name: channel,
        languages: ["en-US"],
-        maxIdleTime: 60,
+        maxIdleTime: 500,
         rtcConfig:{
             channelName: channel,
 
