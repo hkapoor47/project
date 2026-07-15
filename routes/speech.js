@@ -29,13 +29,13 @@ router.post("/start", async (req, res) => {
 
 router.post("/stop", async (req, res) => {
     try {
-        const { taskId } = req.body;
-        if (!taskId) {
+        const { agent_id } = req.body;
+        if (!agent_id) {
             return res.status(400).json({
-                message: "taskId is required"
+                message: "agent_id is required"
             });
         }
-        const result = await stopSpeechToText(taskId);
+        const result = await stopSpeechToText(agent_id);
         res.json(result);
     } catch (error) {
         console.log(error.response?.data || error.message);

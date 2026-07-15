@@ -74,7 +74,7 @@ async function startSpeechToText(channel, uid) {
   }
 }
 
-async function stopSpeechToText(taskId) {
+async function stopSpeechToText(agent_id) {
 
     const customerId = process.env.AGORA_CUSTOMER_ID;
     const customerSecret = process.env.AGORA_CUSTOMER_SECRET;
@@ -85,7 +85,7 @@ async function stopSpeechToText(taskId) {
     ).toString("base64");
 
     const url =
-        `https://api.agora.io/api/speech-to-text/v1/projects/${appId}/tasks/${taskId}/stop`;
+        `https://api.agora.io/api/speech-to-text/v1/projects/${appId}/tasks/${agent_id}/stop`;
 
     const response = await axios.post(
         url,
