@@ -28,6 +28,10 @@ mongoose.connect(process.env.MONGO_URI).then(()=>{
 
 
 app.use("/api/auth",require("./routes/auth"));
+app.use((req, res, next) => {
+    console.log(`${req.method} ${req.url}`);
+    next();
+});
 app.use("/api/speech", speech);
 
 app.listen(PORT,()=>{
