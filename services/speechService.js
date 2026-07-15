@@ -66,6 +66,7 @@ async function startSpeechToText(channel, uid) {
     }catch (error) {
 
     console.log("Status:", error.response?.status);
+    console.log("Agora Error:");
 
     
     console.log(JSON.stringify(error.response?.data, null, 2)
