@@ -30,11 +30,14 @@ async function startSpeechToText(channel, uid) {
             }
         );
         return response.data;
-    } catch (error) {
-        console.error(
-            error.response?.data || error.message
-        );
-        throw error;
-    }
+    }catch (error) {
+
+    console.log("Status:", error.response?.status);
+
+    console.log("Agora Response:");
+    console.log(error.response?.data);
+
+    throw error;
+  }
 }
 module.exports = {startSpeechToText};
