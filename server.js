@@ -14,7 +14,12 @@ app.use(express.json());
 app.use(cors());
 app.use("/api/agora", agora);
 const server = http.createServer(app);
-const io = new Server(server, {cors: {origin: "*",},});
+const io = new Server(server, {cors: 
+    {
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST"],
+},});
+app.set("io", io);
 
 io.on("connection", (socket) => {
     console.log("Client Connected:", socket.id);
@@ -23,6 +28,7 @@ io.on("connection", (socket) => {
         console.log("Client Disconnected:", socket.id);
     });
 });
+
 app.get("/", (req, res) => {
     res.send("Backend is running successfully ");
 });
@@ -39,12 +45,9 @@ mongoose.connect(process.env.MONGO_URI).then(()=>{
 
 
 app.use("/api/auth",require("./routes/auth"));
-app.use((req, res, next) => {
-    console.log(`${req.method} ${req.url}`);
-    next();
-});
+
 app.use("/api/speech", speech);
 
-app.listen(PORT,()=>{
+server.listen(PORT,()=>{
     console.log(`Server is running on port ${PORT}`);
 });
