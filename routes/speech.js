@@ -1,11 +1,30 @@
 const express = require("express");
 const router = express.Router();
 
+const { startSpeechToText } = require("../services/speechService");
+
 router.post("/start", async (req, res) => {
+    try {
+        const { channel, uid } = req.body;
 
-    res.json({
-        message: "Speech API working"
-    });
+        if (!channel || uid === undefined) {
+            return res.status(400).json({
+                message: "channel and uid are required"
+            });
+        }
 
+        const result = await startSpeechToText(channel, uid);
+
+        res.status(200).json(result);
+
+    } catch (error) {
+        console.error("Speech-to-Text Error:", error.message);
+
+        res.status(500).json({
+            message: "Failed to start Speech-to-Text",
+            error: error.message
+        });
+    }
 });
+
 module.exports = router;
