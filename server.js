@@ -1,12 +1,12 @@
+require("dotenv").config();
 const express=require('express');
 const mongoose=require('mongoose');
+const app=express();
 const cors=require('cors');
 const auth=require('./middleware/authMiddleware');
-const app=express();
 const PORT = process.env.PORT ||5000;
 const speech = require("./routes/speech");
 const agora = require("./routes/agora");
-require("dotenv").config();
 
 app.use(express.json());
 app.use(cors());
