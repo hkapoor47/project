@@ -7,11 +7,22 @@ const auth=require('./middleware/authMiddleware');
 const PORT = process.env.PORT ||5000;
 const speech = require("./routes/speech");
 const agora = require("./routes/agora");
+const http = require("http");
+const { Server } = require("socket.io");
 
 app.use(express.json());
 app.use(cors());
 app.use("/api/agora", agora);
+const server = http.createServer(app);
+const io = new Server(server, {cors: {origin: "*",},});
 
+io.on("connection", (socket) => {
+    console.log("Client Connected:", socket.id);
+
+    socket.on("disconnect", () => {
+        console.log("Client Disconnected:", socket.id);
+    });
+});
 app.get("/", (req, res) => {
     res.send("Backend is running successfully ");
 });

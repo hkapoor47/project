@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
+
 const { startSpeechToText } = require("../services/speechService");
 
 router.post("/start", async (req, res) => {
@@ -14,7 +15,7 @@ router.post("/start", async (req, res) => {
             });
         }
          console.log("Calling speechService...");
-         
+
         const result = await startSpeechToText(channel, uid);
 
         res.status(200).json(result);
