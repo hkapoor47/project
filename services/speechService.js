@@ -13,6 +13,8 @@ async function startSpeechToText(channel, uid) {
    
     const role = RtcRole.PUBLISHER;
     const expireTime = Math.floor(Date.now() / 1000) + 3600;
+    const pubBotUid = 5001;
+    const subBotUid = 5002;
 
      const pubBotToken = RtcTokenBuilder.buildTokenWithUid(
         appId,
@@ -45,8 +47,8 @@ async function startSpeechToText(channel, uid) {
             subBotUid: String(subBotUid),
 
         
-            pubBotToken: pubBotToken,
-            subBotToken: subBotToken
+            pubBotToken,
+            subBotToken
         }
     };
     try {
