@@ -4,6 +4,7 @@ const router = express.Router();
 const { startSpeechToText } = require("../services/speechService");
 
 router.post("/start", async (req, res) => {
+      console.log("Speech API Hit");
     try {
         const { channel, uid } = req.body;
 
@@ -12,7 +13,8 @@ router.post("/start", async (req, res) => {
                 message: "channel and uid are required"
             });
         }
-
+         console.log("Calling speechService...");
+         
         const result = await startSpeechToText(channel, uid);
 
         res.status(200).json(result);

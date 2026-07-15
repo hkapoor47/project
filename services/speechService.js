@@ -1,6 +1,7 @@
 const axios = require("axios");
 const { RtcTokenBuilder, RtcRole } = require("agora-token");
 
+console.log("Inside speechService");
 
 async function startSpeechToText(channel, uid) {
     const customerId = process.env.AGORA_CUSTOMER_ID;
