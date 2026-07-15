@@ -8,10 +8,7 @@ async function startSpeechToText(channel, uid) {
     const customerSecret = process.env.AGORA_CUSTOMER_SECRET;
     const appId = process.env.AGORA_APP_ID;
     const appCertificate = process.env.AGORA_APP_CERTIFICATE;
-   
-     if (!customerId || !customerSecret || !appId || !appCertificate) {
-    throw new Error("Missing Agora environment variables.");
-  }
+
     const auth = Buffer.from(`${customerId}:${customerSecret}`).toString("base64");
    
     const role = RtcRole.PUBLISHER;
@@ -42,7 +39,7 @@ async function startSpeechToText(channel, uid) {
     const body = { 
         name: channel,
        languages: ["en-US"],
-        maxIdleTime: 500,
+        maxIdleTime: 60,
         rtcConfig:{
             channelName: channel,
 
@@ -71,10 +68,36 @@ async function startSpeechToText(channel, uid) {
     console.log("Status:", error.response?.status);
     console.log("Agora Error:");
 
-    
     console.log(JSON.stringify(error.response?.data, null, 2)
 );
     throw error;
   }
 }
-module.exports = {startSpeechToText};
+
+async function stopSpeechToText(taskId) {
+
+    const customerId = process.env.AGORA_CUSTOMER_ID;
+    const customerSecret = process.env.AGORA_CUSTOMER_SECRET;
+    const appId = process.env.AGORA_APP_ID;
+
+    const auth = Buffer.from(
+        `${customerId}:${customerSecret}`
+    ).toString("base64");
+
+    const url =
+        `https://api.agora.io/api/speech-to-text/v1/projects/${appId}/tasks/${taskId}/stop`;
+
+    const response = await axios.post(
+        url,
+        {},
+        {
+            headers: {
+                Authorization: `Basic ${auth}`,
+                "Content-Type": "application/json"
+            }
+        }
+    );
+
+    return response.data;
+}
+module.exports = {startSpeechToText, stopSpeechToText};
