@@ -79,6 +79,7 @@ async function stopSpeechToText(agent_id) {
     const customerId = process.env.AGORA_CUSTOMER_ID;
     const customerSecret = process.env.AGORA_CUSTOMER_SECRET;
     const appId = process.env.AGORA_APP_ID;
+    const appCertificate = process.env.AGORA_APP_CERTIFICATE;
 
     const auth = Buffer.from(
         `${customerId}:${customerSecret}`
