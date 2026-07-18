@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const auth = require("../middleware/authMiddleware");
-const { handleRegister , handleLogin , handleUpdateProfile , handleGetProfile } = require('../controller/controller');
+const { handleRegister , handleLogin , handleUpdateProfile , handleGetProfile } = require('../controller/authController');
 
 
 const router = express.Router();
