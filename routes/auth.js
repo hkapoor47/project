@@ -10,7 +10,7 @@ const router = express.Router();
 
 router.post('/register',handleRegister);
 
-router.post('/login',auth, handleLogin);
+router.post('/login', handleLogin);
 
 router.put("/update", auth, handleUpdateProfile);
 
