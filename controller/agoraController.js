@@ -1,9 +1,11 @@
 const { RtcTokenBuilder, RtcRole } = require("agora-token");
+const { v4: uuidv4 } = require("uuid");
 
 async function handleGetToken(req, res) {
     try {
-        const channelName = req.query.channel;
-        const uid = Number(req.query.uid);
+
+        const channelName = `meeting-${uuidv4()}`;
+        const uid = Math.floor(Math.random() * 1000000);
 
         if (!channelName) {
             return res.status(400).json({
@@ -30,7 +32,7 @@ async function handleGetToken(req, res) {
         const expirationTimeInSeconds = 3600;
         const currentTimestamp = Math.floor(Date.now() / 1000);
         const privilegeExpireTime =
-            currentTimestamp + expirationTimeInSeconds;
+           Math.floor(Date.now() / 1000) + 3600;
 
         const token = RtcTokenBuilder.buildTokenWithUid(
             appId,
@@ -42,6 +44,8 @@ async function handleGetToken(req, res) {
         );
 
         return res.status(200).json({
+            channel: channelName,
+            uid,
             token,
             expireAt: privilegeExpireTime,
         });

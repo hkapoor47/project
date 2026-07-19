@@ -12,4 +12,4 @@ function auth(req,res,next){
         return res.status(401).json({message:"Invalid token"});
     }
 }
-module.exports=auth;
+module.exports=auth; 
