@@ -39,6 +39,25 @@ async function handleSpeechCallback(req, res) {
     res.sendStatus(200);
 }
 
+async function handleSpeechCallback(req, res) {
+    console.log(req.body);
+
+    const io = req.app.get("io");
+
+    const words = req.body.words || [];
+
+    const text = words
+        .filter(w => w.is_final)
+        .map(w => w.text)
+        .join(" ");
+
+    if (text) {
+        io.emit("transcript", { text });
+    }
+
+    res.sendStatus(200);
+}
+
 
 async function handleSpeechToTextStop(req, res) {
     try {
