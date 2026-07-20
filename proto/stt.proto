@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package agora.stt;
+
+message SpeechToText {
+  string text = 1;
+  bool isFinal = 2;
+  int64 startTime = 3;
+  int64 endTime = 4;
+}
