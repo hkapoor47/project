@@ -1,8 +1,13 @@
 const { askLLM } = require("../services/llmService");
 
 async function generateAnswer(req, res) {
-    console.log("Request Body:", req.body);
-  console.log("Headers:", req.headers);
+  console.log("Body:", req.body);
+
+  if (!req.body) {
+    return res.status(500).json({
+      error: "req.body is undefined",
+    });
+  }
 
   try {
     const { transcript } = req.body;
