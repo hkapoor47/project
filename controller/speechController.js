@@ -27,24 +27,14 @@ async function handleSpeechToTextStart(req, res) {
     }
 };
 
-async function handleSpeechCallback(req, res) {
-    console.log(req.body);
-
-    const io = req.app.get("io");
-
-    io.emit("transcript", {
-        text: req.body.text
-    });
-
-    res.sendStatus(200);
-}
 
 async function handleSpeechCallback(req, res) {
     console.log(req.body);
 
     const io = req.app.get("io");
 
-    const words = req.body.words || [];
+    const body = req.body || {};
+    const words = body.words || [];
 
     const text = words
         .filter(w => w.is_final)
@@ -57,7 +47,6 @@ async function handleSpeechCallback(req, res) {
 
     res.sendStatus(200);
 }
-
 
 async function handleSpeechToTextStop(req, res) {
     try {
