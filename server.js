@@ -9,6 +9,11 @@ const speech = require("./routes/speech");
 const agora = require("./routes/agora");
 const http = require("http");
 const { Server } = require("socket.io");
+const testRoute = require("./routes/test");
+const llmRoutes = require("./routes/llm");
+
+app.use("/api/llm", llmRoutes);
+app.use("/api/test", testRoute);
 
 app.use(express.json());
 app.use(cors());
