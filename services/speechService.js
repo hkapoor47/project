@@ -49,6 +49,9 @@ async function startSpeechToText(channel, uid) {
         
             pubBotToken,
             subBotToken
+        },
+         callback: {
+               url: "https://your-backend.onrender.com/api/speech/callback"
         }
     };
     try {

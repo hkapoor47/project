@@ -28,11 +28,13 @@ async function handleSpeechToTextStart(req, res) {
 };
 
 async function handleSpeechCallback(req, res) {
-    console.log("========== AGORA CALLBACK ==========");
-    console.log(JSON.stringify(req.body, null, 2));
+    console.log(req.body);
+
     const io = req.app.get("io");
 
-    io.emit("transcript", req.body);
+    io.emit("transcript", {
+        text: req.body.text
+    });
 
     res.sendStatus(200);
 }
