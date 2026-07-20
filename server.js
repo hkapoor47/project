@@ -12,11 +12,11 @@ const { Server } = require("socket.io");
 const testRoute = require("./routes/test");
 const llmRoutes = require("./routes/llm");
 
-app.use("/api/llm", llmRoutes);
-app.use("/api/test", testRoute);
-
 app.use(express.json());
 app.use(cors());
+
+app.use("/api/llm", llmRoutes);
+app.use("/api/test", testRoute);
 app.use("/api/agora", agora);
 const server = http.createServer(app);
 const io = new Server(server, {cors: 

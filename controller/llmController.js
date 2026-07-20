@@ -1,6 +1,9 @@
 const { askLLM } = require("../services/llmService");
 
 async function generateAnswer(req, res) {
+    console.log("Request Body:", req.body);
+  console.log("Headers:", req.headers);
+
   try {
     const { transcript } = req.body;
 
