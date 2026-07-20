@@ -36,18 +36,20 @@ app.get("/", (req, res) => {
 app.get("/profile",auth,(req,res)=>{
     res.json({message:"This is a protected route",user:req.user});
 });
+app.use("/api/auth",require("./routes/auth"));
+
+app.use("/api/speech", speech);
 
 mongoose.connect(process.env.MONGO_URI).then(()=>{
     console.log("MongoDb connected successfully");
+
+    server.listen(PORT,()=>{
+    console.log(`Server is running on port ${PORT}`);
+});
 }).catch((err)=>{
     console.log(err);
 });
 
 
-app.use("/api/auth",require("./routes/auth"));
 
-app.use("/api/speech", speech);
 
-server.listen(PORT,()=>{
-    console.log(`Server is running on port ${PORT}`);
-});

@@ -27,6 +27,16 @@ async function handleSpeechToTextStart(req, res) {
     }
 };
 
+async function handleSpeechCallback(req, res) {
+    console.log("========== AGORA CALLBACK ==========");
+    console.log(JSON.stringify(req.body, null, 2));
+    const io = req.app.get("io");
+
+    io.emit("transcript", req.body);
+
+    res.sendStatus(200);
+}
+
 
 async function handleSpeechToTextStop(req, res) {
     try {
@@ -47,4 +57,4 @@ async function handleSpeechToTextStop(req, res) {
     }
 
 };
-module.exports = { handleSpeechToTextStart, handleSpeechToTextStop };
+module.exports = { handleSpeechToTextStart, handleSpeechToTextStop, handleSpeechCallback };
