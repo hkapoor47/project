@@ -13,7 +13,7 @@ async function generatePdf(geminiResponse) {
             }
 
             // Create unique file name
-            const fileName = `interview-report-${Date.now()}.pdf`;
+            const fileName = `AI MINUTES OF MEETING-${Date.now()}.pdf`;
 
             const filePath = path.join(generatedFolder, fileName);
 
