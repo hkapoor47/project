@@ -1,16 +1,16 @@
 const express = require("express");
 
-const router = express.Router();
-
 const {
-    generatePDF
+    handleGeneratePdf
 } = require("../controller/pdfController");
 
+const router = express.Router();
 
-// POST /api/pdf/generate
+
+// Generate PDF from Gemini response
 router.post(
     "/generate",
-    generatePDF
+    handleGeneratePdf
 );
 
 

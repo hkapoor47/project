@@ -1,66 +1,129 @@
 const PDFDocument = require("pdfkit");
 const fs = require("fs");
+const path = require("path");
 
-function generateTranscriptPDF(transcript, filePath) {
+async function generatePdf(geminiResponse) {
     return new Promise((resolve, reject) => {
+        try {
+            // Make sure generated folder exists
+            const generatedFolder = path.join(__dirname, "../generated");
 
-        // Create a new PDF document
-        const doc = new PDFDocument();
+            if (!fs.existsSync(generatedFolder)) {
+                fs.mkdirSync(generatedFolder, { recursive: true });
+            }
 
-        // Create a write stream for the PDF file
-        const stream = fs.createWriteStream(filePath);
+            // Create unique file name
+            const fileName = `interview-report-${Date.now()}.pdf`;
 
-        // Connect PDF document to file
-        doc.pipe(stream);
+            const filePath = path.join(generatedFolder, fileName);
 
-        // PDF Title
-        doc
-            .fontSize(22)
-            .text("Meeting Transcript", {
-                align: "center"
+            // Create PDF document
+            const doc = new PDFDocument({
+                margin: 50
             });
 
-        // Space after title
-        doc.moveDown();
+            // Create write stream
+            const stream = fs.createWriteStream(filePath);
 
-        // Date and Time
-        doc
-            .fontSize(10)
-            .text(
-                `Generated on: ${new Date().toLocaleString()}`
-            );
+            // Pipe PDF into file
+            doc.pipe(stream);
 
-        doc.moveDown();
+            // PDF Title
+            doc
+                .fontSize(24)
+                .text("Interview Report", {
+                    align: "center"
+                });
 
-        // Transcript heading
-        doc
-            .fontSize(16)
-            .text("Transcript");
+            doc.moveDown();
 
-        doc.moveDown();
+            // Horizontal line
+            doc
+                .moveTo(50, doc.y)
+                .lineTo(550, doc.y)
+                .stroke();
 
-        // Actual transcript
-        doc
-            .fontSize(12)
-            .text(transcript, {
-                align: "left"
+            doc.moveDown();
+
+            // Gemini Response
+
+            if (typeof geminiResponse === "string") {
+                doc
+                    .fontSize(12)
+                    .text(geminiResponse, {
+                        align: "left"
+                    });
+            } else {
+                // If Gemini response is an object
+                Object.entries(geminiResponse).forEach(([key, value]) => {
+
+                    // Section heading
+                    doc
+                        .fontSize(16)
+                        .text(formatTitle(key), {
+                            underline: true
+                        });
+
+                    doc.moveDown(0.5);
+
+                    // Section content
+                    if (Array.isArray(value)) {
+
+                        value.forEach((item) => {
+                            doc
+                                .fontSize(12)
+                                .text(`• ${item}`);
+                        });
+
+                    } else if (typeof value === "object" && value !== null) {
+
+                        doc
+                            .fontSize(12)
+                            .text(JSON.stringify(value, null, 2));
+
+                    } else {
+
+                        doc
+                            .fontSize(12)
+                            .text(String(value));
+
+                    }
+
+                    doc.moveDown();
+                });
+            }
+
+            // Finalize PDF
+            doc.end();
+
+            // When PDF is completely written
+            stream.on("finish", () => {
+                resolve({
+                    fileName,
+                    filePath
+                });
             });
 
-        // Finish PDF
-        doc.end();
+            stream.on("error", (error) => {
+                reject(error);
+            });
 
-        // PDF successfully created
-        stream.on("finish", () => {
-            resolve(filePath);
-        });
-
-        // Error while creating PDF
-        stream.on("error", (error) => {
+        } catch (error) {
             reject(error);
-        });
+        }
     });
 }
 
+
+// Convert camelCase or snake_case into readable title
+function formatTitle(text) {
+    return text
+        .replace(/([A-Z])/g, " $1")
+        .replace(/_/g, " ")
+        .replace(/^./, (char) => char.toUpperCase());
+}
+
+
 module.exports = {
-    generateTranscriptPDF
+    generatePdf
 };
