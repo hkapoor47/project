@@ -12,6 +12,7 @@ const memberSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      lowercase: true,
     },
   },
   {
@@ -21,9 +22,22 @@ const memberSchema = new mongoose.Schema(
 
 const meetingSchema = new mongoose.Schema(
   {
+    meetingId: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
+
     members: {
       type: [memberSchema],
       required: true,
+      validate: {
+        validator: function (members) {
+          return members.length > 0;
+        },
+        message: "At least one member is required",
+      },
     },
   },
   {
