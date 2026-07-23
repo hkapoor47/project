@@ -11,7 +11,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 const testRoute = require("./routes/test");
 const llmRoute = require("./routes/llm");
-const meetingRoutes = require("./routes/meeting");
+const meetingRoute = require("./routes/meeting");
 
 app.use(express.json());
 app.use(cors());
@@ -19,7 +19,7 @@ app.use(cors());
 app.use("/api/llm", llmRoute);
 app.use("/api/test", testRoute);
 app.use("/api/agora", agora);
-app.use("/api/meeting", meetingRoutes);
+app.use("/api/meeting", meetingRoute);
 const server = http.createServer(app);
 const io = new Server(server, {cors: 
     {
