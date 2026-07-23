@@ -21,7 +21,7 @@ async function generateAnswer(req, res) {
     const answer = await askLLM(transcript);
 
     res.json({
-      answer,
+      summary:answer,
     });
   } catch (err) {
     console.error(err);
