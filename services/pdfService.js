@@ -31,7 +31,7 @@ async function generatePdf(geminiResponse) {
             // PDF Title
             doc
                 .fontSize(24)
-                .text("Interview Report", {
+                .text("AI MINUTES OF MEETING", {
                     align: "center"
                 });
 
