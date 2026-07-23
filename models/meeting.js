@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const meetingSchema = new mongoose.Schema(
+const memberSchema = new mongoose.Schema(
   {
     name: {
       type: String,
@@ -12,6 +12,18 @@ const meetingSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
+const meetingSchema = new mongoose.Schema(
+  {
+    members: {
+      type: [memberSchema],
+      required: true,
     },
   },
   {
