@@ -39,6 +39,21 @@ const meetingSchema = new mongoose.Schema(
         message: "At least one member is required",
       },
     },
+
+    transcript: {
+      type: String,
+      default: "",
+    },
+
+    summary: {
+      type: String,
+      default: "",
+    },
+
+    pdfUrl: {
+      type: String,
+      default: "",
+    },
   },
   {
     timestamps: true,
