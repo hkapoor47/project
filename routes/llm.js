@@ -4,6 +4,6 @@ const router = express.Router();
 
 const { generateAnswer } = require("../controller/llmController");
 
-router.post("/ask", generateAnswer);
+router.post("/summarize", generateAnswer);
 
 module.exports = router;
