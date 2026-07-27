@@ -1,10 +1,9 @@
 const {
     generatePdf
-} = require("../services/pdfService");
+} =require("../services/pdfService");
 
 
 async function handleGeneratePdf(req, res) {
-
     try {
         console.log("Generate PDF API hit");
         const { geminiResponse } = req.body;
