@@ -27,25 +27,80 @@ async function handleSpeechToTextStart(req, res) {
     }
 };
 
+const Meeting = require("../models/meeting");
+
 
 async function handleSpeechCallback(req, res) {
-    console.log(req.body);
+    try {
+        console.log("Speech Callback:");
+        console.log(req.body);
+        const io = req.app.get("io");
+        const body = req.body || {};
+        const words = body.words || [];
 
-    const io = req.app.get("io");
+        const text = words
+            .filter(word => word.is_final)
+            .map(word => word.text)
+            .join(" ");
 
-    const body = req.body || {};
-    const words = body.words || [];
+        const uid = Number(
+            body.uid
+        );
 
-    const text = words
-        .filter(w => w.is_final)
-        .map(w => w.text)
-        .join(" ");
+        const channel =
+            body.channelName;
 
-    if (text) {
-        io.emit("transcript", { text });
+        if (!text || !uid || !channel) {
+            return res.sendStatus(200);
+        }
+        const meeting =
+            await Meeting.findOne({
+                meetingId: channel
+            });
+
+        if (!meeting) {
+            console.log(
+                "Meeting not found"
+            );
+            return res.sendStatus(200);
+        }
+
+        const member =
+            meeting.members.find(
+                member =>
+                member.uid === uid
+            );
+
+        let speaker = "Unknown";
+        if(member){
+            speaker = member.name;
+        }
+        meeting.transcript.push({
+            uid,
+            speaker,
+            text
+        });
+        await meeting.save();
+        console.log(
+            `${speaker}: ${text}`
+        );
+        
+        io.emit(
+            "transcript",
+            {
+                uid,
+                speaker,
+                text
+            }
+        );
+        res.sendStatus(200);
+    } catch(error){
+        console.error(
+            "Speech Callback Error:",
+            error
+        );
+        res.sendStatus(500);
     }
-
-    res.sendStatus(200);
 }
 
 async function handleSpeechToTextStop(req, res) {

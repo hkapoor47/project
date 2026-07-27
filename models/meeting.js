@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 
+
 const memberSchema = new mongoose.Schema(
   {
     name: {
@@ -14,11 +15,40 @@ const memberSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
     },
+     uid: {
+            type: Number,
+            default: null,
+        },
   },
   {
     _id: false,
   }
 );
+
+const transcriptSchema = new mongoose.Schema(
+    {
+        uid: {
+            type: Number,
+            required: true,
+        },
+        speaker: {
+            type: String,
+            required: true,
+        },
+        text: {
+            type: String,
+            required: true,
+        },
+        timestamp: {
+            type: Date,
+            default: Date.now,
+        },
+    },
+    {
+        _id: false,
+    }
+);
+
 
 const meetingSchema = new mongoose.Schema(
   {
@@ -29,35 +59,83 @@ const meetingSchema = new mongoose.Schema(
       index: true,
     },
 
+    title: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    meetingLink: {
+      type: String,
+      required: true,
+    },
+
     members: {
       type: [memberSchema],
+
       required: true,
+
       validate: {
         validator: function (members) {
           return members.length > 0;
         },
-        message: "At least one member is required",
+
+        message:
+          "At least one member is required",
       },
     },
 
-    transcript: {
+    status: {
       type: String,
-      default: "",
+
+      enum: [
+        "scheduled",
+        "active",
+        "ended",
+      ],
+
+      default: "scheduled",
+    },
+
+    transcript: {
+      type: [transcriptSchema],
+
+      default: [],
     },
 
     summary: {
       type: String,
+
       default: "",
     },
 
     pdfUrl: {
       type: String,
+
       default: "",
     },
+
+    startedAt: {
+      type: Date,
+
+      default: null,
+    },
+
+    endedAt: {
+      type: Date,
+
+      default: null,
+    },
   },
+
   {
     timestamps: true,
   }
 );
 
-module.exports = mongoose.model("Meeting", meetingSchema);
+
+module.exports =
+  mongoose.model(
+    "Meeting",
+    meetingSchema
+  );

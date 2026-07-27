@@ -1,64 +1,103 @@
-const { RtcTokenBuilder, RtcRole } = require("agora-token");
-const { v4: uuidv4 } = require("uuid");
+const { 
+    RtcTokenBuilder, 
+    RtcRole 
+} = require("agora-token");
+
 
 async function handleGetToken(req, res) {
+
     try {
-
-        const channelName = `meeting-${uuidv4()}`;
-        const uid = Math.floor(Math.random() * 1000000);
-
-        if (!channelName) {
+        const { meetingId } = req.query;
+        const uid = Math.floor(
+            Math.random() * 1000000
+        );
+        if (!meetingId) {
             return res.status(400).json({
-                message: "Channel name is required",
-            });
-        }
-
-        if (isNaN(uid)) {
-            return res.status(400).json({
-                message: "Valid uid is required",
+                message: "Meeting ID is required",
             });
         }
 
         const appId = process.env.AGORA_APP_ID;
-        const appCertificate = process.env.AGORA_APP_CERTIFICATE;
+
+
+        const appCertificate =
+            process.env.AGORA_APP_CERTIFICATE;
 
         if (!appId || !appCertificate) {
             return res.status(500).json({
-                message: "Agora credentials are missing in .env",
+                message: 
+                "Agora credentials are missing in .env",
             });
         }
-
         const role = RtcRole.PUBLISHER;
-        const expirationTimeInSeconds = 3600;
-        const currentTimestamp = Math.floor(Date.now() / 1000);
         const privilegeExpireTime =
-           Math.floor(Date.now() / 1000) + 3600;
+            Math.floor(Date.now() / 1000) + 3600;
+        const token =
+            RtcTokenBuilder.buildTokenWithUid(
 
-        const token = RtcTokenBuilder.buildTokenWithUid(
-            appId,
-            appCertificate,
-            channelName,
-            uid,
-            role,
-            privilegeExpireTime
-        );
+                appId,
+
+                appCertificate,
+
+                meetingId,
+
+                uid,
+
+                role,
+
+                privilegeExpireTime
+
+            );
+
+
 
         return res.status(200).json({
-            channel: channelName,
+
+            message:
+            "Agora token generated successfully",
+
+            channel:
+            meetingId,
+
             uid,
+
             token,
-            expireAt: privilegeExpireTime,
+
+            expireAt:
+            privilegeExpireTime
+
         });
-    } catch (error) {
-        console.error("Token Generation Error:", error);
+
+
+    } catch(error) {
+
+
+        console.error(
+
+            "Token Generation Error:",
+
+            error
+
+        );
+
 
         return res.status(500).json({
-            message: "Failed to generate token",
-            error: error.message,
+
+            message:
+            "Failed to generate token",
+
+            error:
+            error.message
+
         });
+
     }
+
 }
 
+
 module.exports = {
-    handleGetToken,
+
+    handleGetToken
+
 };
