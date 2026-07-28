@@ -101,18 +101,13 @@ async function createMeeting(req, res) {
 
 
         // 8. Create Meeting
-        const meeting =
-            await Meeting.create({
-
-                meetingId,
-
-                title,
-
-                meetingLink,
-
-                members,
-
-            });
+      const meeting = await Meeting.create({
+           meetingId,
+           hostId: host._id,
+           title,
+           meetingLink,
+           members,
+});
 
 
         console.log(
@@ -121,47 +116,7 @@ async function createMeeting(req, res) {
         );
 
 
-        // 9. Send Meeting Invitation
-        // Automatically send meeting link
-        // to every member
-
-        for (const member of members) {
-
-            try {
-
-                await sendMeetingInvitation(
-
-                    member.email,
-
-                    member.name,
-
-                    meetingLink,
-
-                    host.email,
-
-                    host.name
-
-                );
-
-
-                console.log(
-                    `Invitation sent to ${member.email}`
-                );
-
-
-            } catch (error) {
-
-                console.log(
-                    `Email Error for ${member.email}:`,
-                    error.message
-                );
-
-            }
-
-        }
-
-
-        // 10. Response
+       
         return res.status(201).json({
 
             message:
@@ -211,7 +166,127 @@ async function createMeeting(req, res) {
 
 }
 
+async function startMeeting(req, res) {
+    try {
 
+        const { meetingId } = req.params;
+
+        // Logged-in host
+        if (!req.user || !req.user.id) {
+            return res.status(401).json({
+                message: "Authenticated host not found"
+            });
+        }
+
+        // Find host
+        const host = await User.findById(req.user.id);
+
+        if (!host) {
+            return res.status(404).json({
+                message: "Host user not found"
+            });
+        }
+
+        // Find meeting
+        const meeting = await Meeting.findOne({
+            meetingId
+        });
+
+        if (!meeting) {
+            return res.status(404).json({
+                message: "Meeting not found"
+            });
+        }
+
+        // Check if host owns this meeting
+        // NOTE: This requires hostId in Meeting model.
+        // We can add this next if needed.
+
+        // Check meeting status
+        if (meeting.status === "ended") {
+            return res.status(400).json({
+                message: "Meeting has already ended"
+            });
+        }
+
+        if (meeting.status === "active") {
+            return res.status(400).json({
+                message: "Meeting is already active"
+            });
+        }
+
+        // Change status
+        meeting.status = "active";
+        meeting.startedAt = new Date();
+
+        await meeting.save();
+
+        // Send invitation email to every member
+        for (const member of meeting.members) {
+
+            try {
+
+                await sendMeetingInvitation(
+                    member.email,
+                    member.name,
+                    meeting.meetingLink,
+                    host.email,
+                    host.name
+                );
+
+                console.log(
+                    `Invitation sent to ${member.email}`
+                );
+
+            } catch (error) {
+
+                console.error(
+                    `Email Error for ${member.email}:`,
+                    error.message
+                );
+
+            }
+        }
+
+        return res.status(200).json({
+
+            message:
+                "Meeting started and invitations sent",
+
+            meetingId:
+                meeting.meetingId,
+
+            meetingLink:
+                meeting.meetingLink,
+
+            status:
+                meeting.status,
+
+            host: {
+                name: host.name,
+                email: host.email
+            }
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Start Meeting Error:",
+            error
+        );
+
+        return res.status(500).json({
+
+            message:
+                "Failed to start meeting",
+
+            error:
+                error.message
+
+        });
+    }
+}
 
 // ==========================================
 // JOIN MEETING
@@ -520,7 +595,7 @@ async function joinMeeting(req, res) {
 module.exports = {
 
     createMeeting,
-
+    startMeeting,
     joinMeeting
 
 };
