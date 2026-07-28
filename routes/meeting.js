@@ -11,6 +11,6 @@ const auth = require("../middleware/authMiddleware");
 
 router.post("/",auth, createMeeting);
 
-router.post("/:meetingId/join", joinMeeting);
+router.post("/:meetingId/join",auth, joinMeeting);
 
 module.exports = router;

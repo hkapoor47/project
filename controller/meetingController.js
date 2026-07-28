@@ -26,10 +26,7 @@ async function createMeeting(req, res) {
         } = req.body;
 
 
-        // ------------------------------------------
         // 1. Validate meeting title
-        // ------------------------------------------
-
         if (!title) {
             return res.status(400).json({
                 message: "Meeting title is required",
@@ -37,10 +34,7 @@ async function createMeeting(req, res) {
         }
 
 
-        // ------------------------------------------
         // 2. Validate members
-        // ------------------------------------------
-
         if (
             !members ||
             !Array.isArray(members) ||
@@ -52,51 +46,37 @@ async function createMeeting(req, res) {
         }
 
 
-        // ------------------------------------------
         // 3. Validate each member
-        // ------------------------------------------
-
         for (const member of members) {
 
             if (!member.name || !member.email) {
-
                 return res.status(400).json({
                     message:
                         "Each member must have a name and email",
                 });
-
             }
 
         }
 
 
-        // ------------------------------------------
         // 4. Get authenticated host
-        // ------------------------------------------
-
         if (!req.user || !req.user.id) {
-
             return res.status(401).json({
                 message:
                     "Authenticated host not found",
             });
-
         }
 
 
-        // ------------------------------------------
         // 5. Fetch host from database
-        // ------------------------------------------
-
-        const host = await User.findById(req.user.id);
+        const host =
+            await User.findById(req.user.id);
 
         if (!host) {
-
             return res.status(404).json({
                 message:
                     "Host user not found",
             });
-
         }
 
 
@@ -111,36 +91,28 @@ async function createMeeting(req, res) {
         );
 
 
-        // ------------------------------------------
         // 6. Generate Meeting ID
-        // ------------------------------------------
-
         const meetingId = uuidv4();
 
 
-        // ------------------------------------------
         // 7. Generate Meeting Link
-        // ------------------------------------------
-
         const meetingLink =
             `${process.env.FRONTEND_URL}/meeting/${meetingId}`;
 
 
-        // ------------------------------------------
         // 8. Create Meeting
-        // ------------------------------------------
+        const meeting =
+            await Meeting.create({
 
-        const meeting = await Meeting.create({
+                meetingId,
 
-            meetingId,
+                title,
 
-            title,
+                meetingLink,
 
-            meetingLink,
+                members,
 
-            members,
-
-        });
+            });
 
 
         console.log(
@@ -149,9 +121,9 @@ async function createMeeting(req, res) {
         );
 
 
-        // ------------------------------------------
         // 9. Send Meeting Invitation
-        // ------------------------------------------
+        // Automatically send meeting link
+        // to every member
 
         for (const member of members) {
 
@@ -189,10 +161,7 @@ async function createMeeting(req, res) {
         }
 
 
-        // ------------------------------------------
         // 10. Response
-        // ------------------------------------------
-
         return res.status(201).json({
 
             message:
@@ -257,14 +226,35 @@ async function joinMeeting(req, res) {
         } = req.params;
 
 
-        const {
+        // ==========================================
+        // GET LOGGED-IN USER FROM JWT
+        // ==========================================
+
+        if (!req.user || !req.user.email) {
+
+            return res.status(401).json({
+
+                message:
+                    "Authenticated user not found"
+
+            });
+
+        }
+
+
+        const email =
+            req.user.email;
+
+
+        console.log(
+            "Joining User Email:",
             email
-        } = req.body;
+        );
 
 
-        // ------------------------------------------
+        // ==========================================
         // 1. Validate Meeting ID
-        // ------------------------------------------
+        // ==========================================
 
         if (!meetingId) {
 
@@ -272,22 +262,6 @@ async function joinMeeting(req, res) {
 
                 message:
                     "Meeting ID is required"
-
-            });
-
-        }
-
-
-        // ------------------------------------------
-        // 2. Validate Email
-        // ------------------------------------------
-
-        if (!email) {
-
-            return res.status(400).json({
-
-                message:
-                    "Email is required"
 
             });
 
@@ -306,9 +280,9 @@ async function joinMeeting(req, res) {
         );
 
 
-        // ------------------------------------------
-        // 3. Find Meeting
-        // ------------------------------------------
+        // ==========================================
+        // 2. Find Meeting
+        // ==========================================
 
         const meeting =
             await Meeting.findOne({
@@ -330,9 +304,9 @@ async function joinMeeting(req, res) {
         }
 
 
-        // ------------------------------------------
-        // 4. Find Invited Member
-        // ------------------------------------------
+        // ==========================================
+        // 3. Find Invited Member
+        // ==========================================
 
         const member =
             meeting.members.find(
@@ -357,9 +331,15 @@ async function joinMeeting(req, res) {
         }
 
 
-        // ------------------------------------------
-        // 5. Check Meeting Status
-        // ------------------------------------------
+        console.log(
+            "Invited Member:",
+            member.name
+        );
+
+
+        // ==========================================
+        // 4. Check Meeting Status
+        // ==========================================
 
         if (meeting.status === "ended") {
 
@@ -373,13 +353,14 @@ async function joinMeeting(req, res) {
         }
 
 
-        // ------------------------------------------
-        // 6. Activate Meeting
-        // ------------------------------------------
+        // ==========================================
+        // 5. Activate Meeting
+        // ==========================================
 
         if (meeting.status === "scheduled") {
 
-            meeting.status = "active";
+            meeting.status =
+                "active";
 
             meeting.startedAt =
                 new Date();
@@ -389,11 +370,12 @@ async function joinMeeting(req, res) {
         }
 
 
-        // ------------------------------------------
-        // 7. Generate / Reuse UID
-        // ------------------------------------------
+        // ==========================================
+        // 6. Generate / Reuse UID
+        // ==========================================
 
-        let uid = member.uid;
+        let uid =
+            member.uid;
 
 
         if (!uid) {
@@ -413,9 +395,9 @@ async function joinMeeting(req, res) {
         }
 
 
-        // ------------------------------------------
-        // 8. Agora Credentials
-        // ------------------------------------------
+        // ==========================================
+        // 7. Agora Credentials
+        // ==========================================
 
         const appId =
             process.env.AGORA_APP_ID;
@@ -440,9 +422,9 @@ async function joinMeeting(req, res) {
         }
 
 
-        // ------------------------------------------
-        // 9. Generate Agora Token
-        // ------------------------------------------
+        // ==========================================
+        // 8. Generate Agora Token
+        // ==========================================
 
         const role =
             RtcRole.PUBLISHER;
@@ -474,9 +456,9 @@ async function joinMeeting(req, res) {
             );
 
 
-        // ------------------------------------------
-        // 10. Return Response
-        // ------------------------------------------
+        // ==========================================
+        // 9. Return Response
+        // ==========================================
 
         return res.status(200).json({
 
@@ -508,10 +490,8 @@ async function joinMeeting(req, res) {
 
         });
 
-    }
 
-
-    catch (error) {
+    } catch (error) {
 
         console.error(
 
