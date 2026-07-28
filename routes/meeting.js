@@ -7,7 +7,9 @@ const {
   joinMeeting,
 } = require("../controller/meetingController");
 
-router.post("/", createMeeting);
+const auth = require("../middleware/authMiddleware");
+
+router.post("/",auth, createMeeting);
 
 router.post("/:meetingId/join", joinMeeting);
 
