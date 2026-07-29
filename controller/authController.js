@@ -70,7 +70,7 @@ async function handleLogin(req, res) {
         return res.status(400).json({ message: 'Invalid email or password' });
     }
     
-    const token = jwt.sign({ id: user._id , role: user.role}, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ id: user._id.toString(),email:user.email, role: user.role}, process.env.JWT_SECRET, { expiresIn: '1h' });
     res.json({ message: 'Login successful', token , user:{
         id:user._id,
         name:user.name,

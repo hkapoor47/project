@@ -435,8 +435,9 @@ async function joinMeeting(req, res) {
         // ==========================================
 
         if (
-            !req.user.name,
-            !req.user.email
+            !req.user||
+            !req.user.email||
+            !req.user.id
         ) {
 
             return res.status(401).json({
