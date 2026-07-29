@@ -4,11 +4,16 @@ const router = express.Router();
 
 const {
   createMeeting,
+  startMeeting,
   joinMeeting,
 } = require("../controller/meetingController");
 
-router.post("/", createMeeting);
+const auth = require("../middleware/authMiddleware");
 
-router.post("/:meetingId/join", joinMeeting);
+router.post("/", auth, createMeeting);
+
+router.post("/:meetingId/start", auth, startMeeting);
+
+router.post("/:meetingId/join", auth, joinMeeting);
 
 module.exports = router;

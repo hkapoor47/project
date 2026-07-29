@@ -1,67 +1,136 @@
 const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+    service: "gmail",
 
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+    },
 });
 
 
 async function sendMeetingInvitation(
-  email,
-  memberName,
-  meetingLink
+    email,
+    memberName,
+    meetingLink,
+    hostEmail,
+    hostName
 ) {
-  await transporter.sendMail({
+    try {
 
-    from: `"Meeting App" <${process.env.EMAIL_USER}>`,
+        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+            throw new Error(
+                "EMAIL_USER or EMAIL_PASS is missing in .env"
+            );
+        }
 
-    to: email,
+        if (!email || !meetingLink) {
+            throw new Error(
+                "Email address and meeting link are required"
+            );
+        }
 
-    subject: "You are invited to a meeting",
+        const mailOptions = {
 
-    html: `
-      <h2>You have been invited to a meeting</h2>
+            // Email is actually sent through this SMTP account
+            from: `"Meeting App" <${process.env.EMAIL_USER}>`,
 
-      <p>Hello ${memberName},</p>
+            // Member receiving the invitation
+            to: email,
 
-      <p>
-        You have been invited to join a meeting.
-      </p>
+            // If member replies, reply goes to the host
+            replyTo: hostEmail,
 
-      <p>
-        Click the button below to join:
-      </p>
+            subject: "You are invited to a meeting",
 
-      <a
-        href="${meetingLink}"
-        style="
-          display: inline-block;
-          padding: 10px 20px;
-          background-color: #007bff;
-          color: white;
-          text-decoration: none;
-          border-radius: 5px;
-        "
-      >
-        Join Meeting
-      </a>
+            html: `
+                <div style="font-family: Arial, sans-serif;">
 
-      <p>
-        Or copy this link:
-      </p>
+                    <h2>You have been invited to a meeting</h2>
 
-      <p>
-        ${meetingLink}
-      </p>
-    `,
-  });
+                    <p>Hello ${memberName},</p>
+
+                    <p>
+                        <strong>${hostName}</strong> has invited you
+                        to a meeting.
+                    </p>
+
+                    <p>
+                        Click the button below to join the meeting:
+                    </p>
+
+                    <a
+                        href="${meetingLink}"
+                        style="
+                            display: inline-block;
+                            padding: 12px 24px;
+                            background-color: #007bff;
+                            color: white;
+                            text-decoration: none;
+                            border-radius: 5px;
+                            font-weight: bold;
+                        "
+                    >
+                        Join Meeting
+                    </a>
+
+                    <p>
+                        Or copy and paste this link into your browser:
+                    </p>
+
+                    <p>
+                        ${meetingLink}
+                    </p>
+
+                    <p>
+                        Meeting hosted by:
+                        <strong>${hostName}</strong>
+                    </p>
+
+                    <p>
+                        Host email:
+                        ${hostEmail}
+                    </p>
+
+                    <p>
+                        See you in the meeting!
+                    </p>
+
+                </div>
+            `,
+        };
+
+
+        const info =
+            await transporter.sendMail(mailOptions);
+
+
+        console.log(
+            `Meeting invitation sent successfully to ${email}`
+        );
+
+        console.log(
+            "Message ID:",
+            info.messageId
+        );
+
+
+        return info;
+
+
+    } catch (error) {
+
+        console.error(
+            `Failed to send meeting invitation to ${email}:`,
+            error.message
+        );
+
+        throw error;
+    }
 }
 
 
 module.exports = {
-  sendMeetingInvitation,
+    sendMeetingInvitation,
 };
