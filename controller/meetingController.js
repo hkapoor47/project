@@ -424,128 +424,63 @@ async function startMeeting(req, res) {
 // ==========================================
 
 async function joinMeeting(req, res) {
-
     try {
 
-        const {
-            meetingId
-        } = req.params;
-
+        const { meetingId } = req.params;
 
         // ==========================================
         // 1. Check Logged-in User
         // ==========================================
 
-        if (
-            !req.user ||
-            !req.user.email
-        ) {
-
+        if (!req.user || !req.user.id || !req.user.email) {
             return res.status(401).json({
-
-                message:
-                    "Authenticated user not found"
-
+                message: "Authenticated user not found"
             });
-
         }
 
+        const email = req.user.email;
 
-        const email =
-            req.user.email;
-
-
-        console.log(
-            "Joining User Email:",
-            email
-        );
-
+        console.log("Joining User Email:", email);
 
         // ==========================================
         // 2. Validate Meeting ID
         // ==========================================
 
         if (!meetingId) {
-
             return res.status(400).json({
-
-                message:
-                    "Meeting ID is required"
-
+                message: "Meeting ID is required"
             });
-
         }
-
-
-        console.log(
-            "Database:",
-            mongoose.connection.name
-        );
-
-
-        console.log(
-            "Meeting ID:",
-            meetingId
-        );
-
 
         // ==========================================
         // 3. Find Meeting
         // ==========================================
 
-        const meeting =
-            await Meeting.findOne({
-
-                meetingId
-
-            });
-
+        const meeting = await Meeting.findOne({
+            meetingId
+        });
 
         if (!meeting) {
-
             return res.status(404).json({
-
-                message:
-                    "Meeting not found"
-
+                message: "Meeting not found"
             });
-
         }
-
 
         // ==========================================
         // 4. Check Meeting Status
         // ==========================================
 
-        if (
-            meeting.status ===
-            "scheduled"
-        ) {
-
+        if (meeting.status === "scheduled") {
             return res.status(400).json({
-
-                message:
-                    "Meeting has not been started by the host yet"
-
+                message: "Meeting has not been started by the host yet"
             });
-
         }
 
-
-        if (
-            meeting.status ===
-            "ended"
-        ) {
-
+        if (meeting.status === "ended") {
             return res.status(400).json({
-
-                message:
-                    "Meeting already ended"
-
+                message: "Meeting already ended"
             });
-
         }
-
 
         // ==========================================
         // 5. Check If User Is Host
@@ -553,151 +488,116 @@ async function joinMeeting(req, res) {
 
         const isHost =
             meeting.hostId &&
-            meeting.hostId.toString() ===
-            req.user.id.toString();
-
+            meeting.hostId.toString() === req.user.id.toString();
 
         // ==========================================
         // 6. Find Invited Member
         // ==========================================
 
-        const member =
-            meeting.members.find(
-
-                (member) =>
-
-                    member.email.toLowerCase() ===
-                    email.toLowerCase()
-
-            );
-
+        const member = meeting.members.find(
+            (member) =>
+                member.email.toLowerCase() ===
+                email.toLowerCase()
+        );
 
         // ==========================================
         // 7. Allow Host OR Invited Member
         // ==========================================
 
-        if (
-            !isHost &&
-            !member
-        ) {
-
+        if (!isHost && !member) {
             return res.status(403).json({
-
-                message:
-                    "You are not invited to this meeting"
-
+                message: "You are not invited to this meeting"
             });
-
         }
 
+        // ==========================================
+        // 8. Get Host Details If User Is Host
+        // ==========================================
+
+        let host = null;
+
+        if (isHost) {
+            host = await User.findById(req.user.id);
+
+            if (!host) {
+                return res.status(404).json({
+                    message: "Host user not found"
+                });
+            }
+        }
 
         // ==========================================
-        // 8. Generate UID
+        // 9. Generate UID
         // ==========================================
 
         let uid;
 
-
         if (isHost) {
 
-            // Host gets a unique UID
-            uid =
-                1;
+            // Host UID
+            uid = 1;
 
         } else {
 
-            uid =
-                member.uid;
+            // Existing member UID
+            uid = member.uid;
 
-
+            // Generate new UID if needed
             if (!uid) {
 
-                uid =
-                    Math.floor(
-                        Math.random() * 1000000
-                    );
+                uid = Math.floor(
+                    Math.random() * 1000000
+                );
 
-
-                member.uid =
-                    uid;
-
+                member.uid = uid;
 
                 await meeting.save();
-
             }
-
         }
 
-
         // ==========================================
-        // 9. Agora Credentials
+        // 10. Agora Credentials
         // ==========================================
 
         const appId =
             process.env.AGORA_APP_ID;
 
-
         const appCertificate =
             process.env.AGORA_APP_CERTIFICATE;
 
-
-        if (
-            !appId ||
-            !appCertificate
-        ) {
-
+        if (!appId || !appCertificate) {
             return res.status(500).json({
-
-                message:
-                    "Agora credentials missing"
-
+                message: "Agora credentials missing"
             });
-
         }
 
-
         // ==========================================
-        // 10. Generate Agora Token
+        // 11. Generate Agora Token
         // ==========================================
 
         const role =
             RtcRole.PUBLISHER;
 
-
         const privilegeExpireTime =
-
-            Math.floor(
-                Date.now() / 1000
-            ) + 3600;
-
+            Math.floor(Date.now() / 1000) + 3600;
 
         const token =
-
             RtcTokenBuilder.buildTokenWithUid(
-
                 appId,
-
                 appCertificate,
-
                 meeting.meetingId,
-
                 uid,
-
                 role,
-
                 privilegeExpireTime
-
             );
 
-
         // ==========================================
-        // 11. Return Response
+        // 12. Return Response
         // ==========================================
 
         return res.status(200).json({
 
-            message:
-                "You can join the meeting",
+            message: "You can join the meeting",
 
             meetingId:
                 meeting.meetingId,
@@ -713,40 +613,22 @@ async function joinMeeting(req, res) {
                 privilegeExpireTime,
 
             member: isHost
-
                 ? {
-
-                    name:
-                        host.name,
-
-                    email:
-                        host.email
-
+                    name: host.name,
+                    email: host.email
                 }
-
                 : {
-
-                    name:
-                        member.name,
-
-                    email:
-                        member.email
-
+                    name: member.name,
+                    email: member.email
                 }
-
         });
-
 
     } catch (error) {
 
         console.error(
-
             "Join Meeting Error:",
-
             error
-
         );
-
 
         return res.status(500).json({
 
@@ -755,11 +637,8 @@ async function joinMeeting(req, res) {
 
             error:
                 error.message
-
         });
-
     }
-
 }
 
 
