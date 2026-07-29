@@ -8,16 +8,13 @@ const {
     RtcRole
 } = require("agora-token");
 
-const {
-    sendMeetingInvitation,
-} = require("../services/emailService");
-
 
 // ==========================================
 // CREATE MEETING
 // ==========================================
 
 async function createMeeting(req, res) {
+
     try {
 
         const {
@@ -26,57 +23,83 @@ async function createMeeting(req, res) {
         } = req.body;
 
 
-        // 1. Validate meeting title
+        // ==========================================
+        // 1. Validate Meeting Title
+        // ==========================================
+
         if (!title) {
+
             return res.status(400).json({
                 message: "Meeting title is required",
             });
+
         }
 
 
-        // 2. Validate members
+        // ==========================================
+        // 2. Validate Members
+        // ==========================================
+
         if (
             !members ||
             !Array.isArray(members) ||
             members.length === 0
         ) {
+
             return res.status(400).json({
                 message: "At least one member is required",
             });
+
         }
 
 
-        // 3. Validate each member
+        // ==========================================
+        // 3. Validate Each Member
+        // ==========================================
+
         for (const member of members) {
 
             if (!member.name || !member.email) {
+
                 return res.status(400).json({
                     message:
                         "Each member must have a name and email",
                 });
+
             }
 
         }
 
 
-        // 4. Get authenticated host
+        // ==========================================
+        // 4. Get Authenticated Host
+        // ==========================================
+
         if (!req.user || !req.user.id) {
+
             return res.status(401).json({
                 message:
                     "Authenticated host not found",
             });
+
         }
 
 
-        // 5. Fetch host from database
+        // ==========================================
+        // 5. Find Host
+        // ==========================================
+
         const host =
             await User.findById(req.user.id);
 
+
         if (!host) {
+
             return res.status(404).json({
                 message:
                     "Host user not found",
             });
+
         }
 
 
@@ -91,23 +114,44 @@ async function createMeeting(req, res) {
         );
 
 
+        // ==========================================
         // 6. Generate Meeting ID
-        const meetingId = uuidv4();
+        // ==========================================
+
+        const meetingId =
+            uuidv4();
 
 
+        // ==========================================
         // 7. Generate Meeting Link
+        // ==========================================
+
         const meetingLink =
             `${process.env.FRONTEND_URL}/meeting/${meetingId}`;
 
 
+        // ==========================================
         // 8. Create Meeting
-      const meeting = await Meeting.create({
-           meetingId,
-           hostId: host._id,
-           title,
-           meetingLink,
-           members,
-});
+        // ==========================================
+
+        const meeting =
+            await Meeting.create({
+
+                meetingId,
+
+                hostId:
+                    host._id,
+
+                title,
+
+                meetingLink,
+
+                members,
+
+                status:
+                    "scheduled",
+
+            });
 
 
         console.log(
@@ -116,7 +160,10 @@ async function createMeeting(req, res) {
         );
 
 
-       
+        // ==========================================
+        // 9. Response
+        // ==========================================
+
         return res.status(201).json({
 
             message:
@@ -139,6 +186,9 @@ async function createMeeting(req, res) {
 
             meetingLink,
 
+            status:
+                meeting.status,
+
             meeting,
 
         });
@@ -146,7 +196,7 @@ async function createMeeting(req, res) {
 
     } catch (error) {
 
-        console.log(
+        console.error(
             "Create Meeting Error:",
             error
         );
@@ -166,92 +216,159 @@ async function createMeeting(req, res) {
 
 }
 
+
+
+// ==========================================
+// START MEETING
+// ==========================================
+
 async function startMeeting(req, res) {
+
     try {
 
-        const { meetingId } = req.params;
+        const {
+            meetingId
+        } = req.params;
 
-        // Logged-in host
+
+        // ==========================================
+        // 1. Check Authenticated Host
+        // ==========================================
+
         if (!req.user || !req.user.id) {
+
             return res.status(401).json({
-                message: "Authenticated host not found"
+
+                message:
+                    "Authenticated host not found"
+
             });
+
         }
 
-        // Find host
-        const host = await User.findById(req.user.id);
+
+        // ==========================================
+        // 2. Find Host
+        // ==========================================
+
+        const host =
+            await User.findById(
+                req.user.id
+            );
+
 
         if (!host) {
+
             return res.status(404).json({
-                message: "Host user not found"
+
+                message:
+                    "Host user not found"
+
             });
+
         }
 
-        // Find meeting
-        const meeting = await Meeting.findOne({
-            meetingId
-        });
+
+        // ==========================================
+        // 3. Find Meeting
+        // ==========================================
+
+        const meeting =
+            await Meeting.findOne({
+
+                meetingId
+
+            });
+
 
         if (!meeting) {
+
             return res.status(404).json({
-                message: "Meeting not found"
+
+                message:
+                    "Meeting not found"
+
             });
+
         }
 
-        // Check if host owns this meeting
-        // NOTE: This requires hostId in Meeting model.
-        // We can add this next if needed.
 
-        // Check meeting status
-        if (meeting.status === "ended") {
+        // ==========================================
+        // 4. Check Meeting Host
+        // ==========================================
+
+        if (
+            !meeting.hostId ||
+            meeting.hostId.toString() !==
+            host._id.toString()
+        ) {
+
+            return res.status(403).json({
+
+                message:
+                    "You are not the host of this meeting"
+
+            });
+
+        }
+
+
+        // ==========================================
+        // 5. Check Meeting Status
+        // ==========================================
+
+        if (
+            meeting.status ===
+            "ended"
+        ) {
+
             return res.status(400).json({
-                message: "Meeting has already ended"
+
+                message:
+                    "Meeting has already ended"
+
             });
+
         }
 
-        if (meeting.status === "active") {
+
+        if (
+            meeting.status ===
+            "active"
+        ) {
+
             return res.status(400).json({
-                message: "Meeting is already active"
+
+                message:
+                    "Meeting is already active"
+
             });
+
         }
 
-        // Change status
-        meeting.status = "active";
-        meeting.startedAt = new Date();
+
+        // ==========================================
+        // 6. Start Meeting
+        // ==========================================
+
+        meeting.status =
+            "active";
+
+        meeting.startedAt =
+            new Date();
+
 
         await meeting.save();
 
-        // Send invitation email to every member
-        for (const member of meeting.members) {
 
-            try {
-
-                await sendMeetingInvitation(
-                    member.email,
-                    member.name,
-                    meeting.meetingLink,
-                    host.email,
-                    host.name
-                );
-
-                console.log(
-                    `Invitation sent to ${member.email}`
-                );
-
-            } catch (error) {
-
-                console.error(
-                    `Email Error for ${member.email}:`,
-                    error.message
-                );
-
-            }
-        }
+        // ==========================================
+        // 7. Return Meeting Link
+        // ==========================================
 
         return res.status(200).json({
 
             message:
-                "Meeting started and invitations sent",
+                "Meeting started successfully",
 
             meetingId:
                 meeting.meetingId,
@@ -259,15 +376,24 @@ async function startMeeting(req, res) {
             meetingLink:
                 meeting.meetingLink,
 
+            agoraChannel:
+                meeting.meetingId,
+
             status:
                 meeting.status,
 
             host: {
-                name: host.name,
-                email: host.email
-            }
+
+                name:
+                    host.name,
+
+                email:
+                    host.email,
+
+            },
 
         });
+
 
     } catch (error) {
 
@@ -276,17 +402,22 @@ async function startMeeting(req, res) {
             error
         );
 
+
         return res.status(500).json({
 
             message:
                 "Failed to start meeting",
 
             error:
-                error.message
+                error.message,
 
         });
+
     }
+
 }
+
+
 
 // ==========================================
 // JOIN MEETING
@@ -302,10 +433,13 @@ async function joinMeeting(req, res) {
 
 
         // ==========================================
-        // GET LOGGED-IN USER FROM JWT
+        // 1. Check Logged-in User
         // ==========================================
 
-        if (!req.user || !req.user.email) {
+        if (
+            !req.user ||
+            !req.user.email
+        ) {
 
             return res.status(401).json({
 
@@ -328,7 +462,7 @@ async function joinMeeting(req, res) {
 
 
         // ==========================================
-        // 1. Validate Meeting ID
+        // 2. Validate Meeting ID
         // ==========================================
 
         if (!meetingId) {
@@ -356,7 +490,7 @@ async function joinMeeting(req, res) {
 
 
         // ==========================================
-        // 2. Find Meeting
+        // 3. Find Meeting
         // ==========================================
 
         const meeting =
@@ -380,7 +514,51 @@ async function joinMeeting(req, res) {
 
 
         // ==========================================
-        // 3. Find Invited Member
+        // 4. Check Meeting Status
+        // ==========================================
+
+        if (
+            meeting.status ===
+            "scheduled"
+        ) {
+
+            return res.status(400).json({
+
+                message:
+                    "Meeting has not been started by the host yet"
+
+            });
+
+        }
+
+
+        if (
+            meeting.status ===
+            "ended"
+        ) {
+
+            return res.status(400).json({
+
+                message:
+                    "Meeting already ended"
+
+            });
+
+        }
+
+
+        // ==========================================
+        // 5. Check If User Is Host
+        // ==========================================
+
+        const isHost =
+            meeting.hostId &&
+            meeting.hostId.toString() ===
+            req.user.id.toString();
+
+
+        // ==========================================
+        // 6. Find Invited Member
         // ==========================================
 
         const member =
@@ -394,7 +572,14 @@ async function joinMeeting(req, res) {
             );
 
 
-        if (!member) {
+        // ==========================================
+        // 7. Allow Host OR Invited Member
+        // ==========================================
+
+        if (
+            !isHost &&
+            !member
+        ) {
 
             return res.status(403).json({
 
@@ -406,72 +591,46 @@ async function joinMeeting(req, res) {
         }
 
 
-        console.log(
-            "Invited Member:",
-            member.name
-        );
-
-
         // ==========================================
-        // 4. Check Meeting Status
+        // 8. Generate UID
         // ==========================================
 
-        if (meeting.status === "ended") {
-
-            return res.status(400).json({
-
-                message:
-                    "Meeting already ended"
-
-            });
-
-        }
+        let uid;
 
 
-        // ==========================================
-        // 5. Activate Meeting
-        // ==========================================
+        if (isHost) {
 
-        if (meeting.status === "scheduled") {
+            // Host gets a unique UID
+            uid =
+                1;
 
-            meeting.status =
-                "active";
-
-            meeting.startedAt =
-                new Date();
-
-            await meeting.save();
-
-        }
-
-
-        // ==========================================
-        // 6. Generate / Reuse UID
-        // ==========================================
-
-        let uid =
-            member.uid;
-
-
-        if (!uid) {
+        } else {
 
             uid =
-                Math.floor(
-                    Math.random() * 1000000
-                );
+                member.uid;
 
 
-            member.uid =
-                uid;
+            if (!uid) {
+
+                uid =
+                    Math.floor(
+                        Math.random() * 1000000
+                    );
 
 
-            await meeting.save();
+                member.uid =
+                    uid;
+
+
+                await meeting.save();
+
+            }
 
         }
 
 
         // ==========================================
-        // 7. Agora Credentials
+        // 9. Agora Credentials
         // ==========================================
 
         const appId =
@@ -498,7 +657,7 @@ async function joinMeeting(req, res) {
 
 
         // ==========================================
-        // 8. Generate Agora Token
+        // 10. Generate Agora Token
         // ==========================================
 
         const role =
@@ -532,7 +691,7 @@ async function joinMeeting(req, res) {
 
 
         // ==========================================
-        // 9. Return Response
+        // 11. Return Response
         // ==========================================
 
         return res.status(200).json({
@@ -553,15 +712,27 @@ async function joinMeeting(req, res) {
             expireAt:
                 privilegeExpireTime,
 
-            member: {
+            member: isHost
 
-                name:
-                    member.name,
+                ? {
 
-                email:
-                    member.email
+                    name:
+                        host.name,
 
-            }
+                    email:
+                        host.email
+
+                }
+
+                : {
+
+                    name:
+                        member.name,
+
+                    email:
+                        member.email
+
+                }
 
         });
 
@@ -592,10 +763,17 @@ async function joinMeeting(req, res) {
 }
 
 
+
+// ==========================================
+// EXPORT
+// ==========================================
+
 module.exports = {
 
     createMeeting,
+
     startMeeting,
+
     joinMeeting
 
 };
