@@ -4,21 +4,23 @@ function auth(req, res, next) {
 
     const authHeader = req.headers.authorization;
 
+    
     if (!authHeader) {
         return res.status(401).json({
             message: "No token provided"
         });
     }
 
+    
     let token = authHeader;
 
-    // Agar Bearer token hai to Bearer hata do
     if (authHeader.startsWith("Bearer ")) {
         token = authHeader.split(" ")[1];
     }
 
     try {
 
+        
         const decoded = jwt.verify(
             token,
             process.env.JWT_SECRET
@@ -26,6 +28,7 @@ function auth(req, res, next) {
 
         console.log("Decoded User:", decoded);
 
+        
         req.user = decoded;
 
         next();
