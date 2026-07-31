@@ -2,13 +2,11 @@ const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
     service: "gmail",
-
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
     },
 });
-
 
 async function sendMeetingInvitation(
     email,
@@ -18,48 +16,32 @@ async function sendMeetingInvitation(
     hostName
 ) {
     try {
-
         if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
             throw new Error(
                 "EMAIL_USER or EMAIL_PASS is missing in .env"
             );
         }
-
         if (!email || !meetingLink) {
             throw new Error(
                 "Email address and meeting link are required"
             );
         }
-
         const mailOptions = {
-
-            // Email is actually sent through this SMTP account
             from: `"Meeting App" <${process.env.EMAIL_USER}>`,
-
-            // Member receiving the invitation
             to: email,
-
-            // If member replies, reply goes to the host
             replyTo: hostEmail,
-
             subject: "You are invited to a meeting",
-
             html: `
                 <div style="font-family: Arial, sans-serif;">
-
                     <h2>You have been invited to a meeting</h2>
-
                     <p>Hello ${memberName},</p>
-
                     <p>
                         <strong>${hostName}</strong> has invited you
                         to a meeting.
                     </p>
-
                     <p>
                         Click the button below to join the meeting:
                     </p>
-
                     <a
                         href="${meetingLink}"
                         style="
@@ -74,63 +56,41 @@ async function sendMeetingInvitation(
                     >
                         Join Meeting
                     </a>
-
                     <p>
                         Or copy and paste this link into your browser:
                     </p>
-
                     <p>
                         ${meetingLink}
                     </p>
-
                     <p>
                         Meeting hosted by:
                         <strong>${hostName}</strong>
                     </p>
-
                     <p>
                         Host email:
                         ${hostEmail}
                     </p>
-
                     <p>
                         See you in the meeting!
                     </p>
-
                 </div>
             `,
         };
 
-
         const info =
             await transporter.sendMail(mailOptions);
-
-
         console.log(
             `Meeting invitation sent successfully to ${email}`
         );
-
-        console.log(
-            "Message ID:",
-            info.messageId
-        );
-
-
+        console.log("Message ID:", info.messageId);
         return info;
-
-
     } catch (error) {
-
         console.error(
-            `Failed to send meeting invitation to ${email}:`,
-            error.message
+            `Failed to send meeting invitation to ${email}:`,error.message
         );
-
         throw error;
     }
 }
-
-
 module.exports = {
     sendMeetingInvitation,
 };

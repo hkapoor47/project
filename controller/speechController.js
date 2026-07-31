@@ -3,6 +3,7 @@ const {
     stopSpeechToText
 } = require("../services/speechService");
 
+const Meeting = require("../models/meeting");
 
 async function handleSpeechToTextStart(req, res) {
       console.log("Speech API Hit");
@@ -17,7 +18,7 @@ async function handleSpeechToTextStart(req, res) {
 
         const result = await startSpeechToText(channel, uid);
         res.status(200).json(result);
-
+        
     } catch (error) {
         console.error("Speech-to-Text Error:", error.message);
         res.status(500).json({
@@ -26,9 +27,6 @@ async function handleSpeechToTextStart(req, res) {
         });
     }
 };
-
-const Meeting = require("../models/meeting");
-
 
 async function handleSpeechCallback(req, res) {
     try {

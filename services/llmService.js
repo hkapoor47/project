@@ -13,6 +13,4 @@ async function askLLM(prompt) {
   return response.text;
 }
 
-module.exports = {
-  askLLM,
-};
+module.exports = {askLLM};

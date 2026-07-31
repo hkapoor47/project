@@ -6,8 +6,6 @@ const {
 
 const router = express.Router();
 
-
-// Generate PDF from Gemini response
 router.post(
     "/generate",
     handleGeneratePdf

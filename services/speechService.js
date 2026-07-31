@@ -39,7 +39,7 @@ async function startSpeechToText(channel, uid) {
     const body = { 
         name: channel,
        languages: ["en-US"],
-        maxIdleTime: 60,
+        maxIdleTime: 60,        //.....
         rtcConfig:{
             channelName: channel,
 
@@ -71,8 +71,7 @@ async function startSpeechToText(channel, uid) {
     console.log("Status:", error.response?.status);
     console.log("Agora Error:");
 
-    console.log(JSON.stringify(error.response?.data, null, 2)
-);
+    console.log(JSON.stringify(error.response?.data, null, 2));
     throw error;
   }
 }
@@ -84,15 +83,11 @@ async function stopSpeechToText(agent_id) {
     const appId = process.env.AGORA_APP_ID;
     const appCertificate = process.env.AGORA_APP_CERTIFICATE;
 
-    const auth = Buffer.from(
-        `${customerId}:${customerSecret}`
-    ).toString("base64");
+    const auth = Buffer.from(`${customerId}:${customerSecret}`).toString("base64");
 
-    
     const url = `https://api.agora.io/api/speech-to-text/v1/projects/${appId}/agents/${agent_id}/leave`;
 
     try {
-
         const response = await axios.post(
             url,
             {},
@@ -113,6 +108,6 @@ async function stopSpeechToText(agent_id) {
         console.log(JSON.stringify(error.response?.data, null, 2));
 
         throw error;
-    }
+    } 
 }
-module.exports = {startSpeechToText, stopSpeechToText};
+module.exports = {startSpeechToText, stopSpeechToText};  
