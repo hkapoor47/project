@@ -26,56 +26,60 @@ async function sendMeetingInvitation(
                 "Email address and meeting link are required"
             );
         }
+       
         const mailOptions = {
-            from: `"Meeting App" <${process.env.EMAIL_USER}>`,
-            to: email,
-            replyTo: hostEmail,
-            subject: "You are invited to a meeting",
-            html: `
-                <div style="font-family: Arial, sans-serif;">
-                    <h2>You have been invited to a meeting</h2>
-                    <p>Hello ${memberName},</p>
-                    <p>
-                        <strong>${hostName}</strong> has invited you
-                        to a meeting.
-                    </p>
-                    <p>
-                        Click the button below to join the meeting:
-                    </p>
-                    <a
-                        href="${meetingLink}"
-                        style="
-                            display: inline-block;
-                            padding: 12px 24px;
-                            background-color: #007bff;
-                            color: white;
-                            text-decoration: none;
-                            border-radius: 5px;
-                            font-weight: bold;
-                        "
-                    >
-                        Join Meeting
-                    </a>
-                    <p>
-                        Or copy and paste this link into your browser:
-                    </p>
-                    <p>
-                        ${meetingLink}
-                    </p>
-                    <p>
-                        Meeting hosted by:
-                        <strong>${hostName}</strong>
-                    </p>
-                    <p>
-                        Host email:
-                        ${hostEmail}
-                    </p>
-                    <p>
-                        See you in the meeting!
-                    </p>
-                </div>
-            `,
-        };
+           from: `"Meeting App" <${process.env.EMAIL_USER}>`,
+           to: email,
+           replyTo: hostEmail,
+           subject: `${hostName} has started the meeting`,
+           html: `
+          <div style="font-family: Arial, sans-serif; max-width:600px; margin:auto;">
+             <h2>Your meeting has started</h2>
+
+             <p>Hello <strong>${memberName}</strong>,</p>
+
+             <p>
+                <strong>${hostName}</strong> has started the meeting.
+             </p>
+
+             <p>
+                Click the button below to join now:
+             </p>
+
+             <a
+                href="${meetingLink}"
+                style="
+                    display:inline-block;
+                    padding:12px 24px;
+                    background:#007bff;
+                    color:white;
+                    text-decoration:none;
+                    border-radius:5px;
+                    font-weight:bold;
+                "
+             >
+                Join Meeting
+             </a>
+
+             <p style="margin-top:20px;">
+                If the button doesn't work, copy and paste this link into your browser:
+             </p>
+
+             <p>
+                <a href="${meetingLink}">
+                    ${meetingLink}
+                 </a>
+             </p>
+
+             <hr>
+
+             <p><strong>Host:</strong> ${hostName}</p>
+             <p><strong>Email:</strong> ${hostEmail}</p>
+
+             <p>See you in the meeting!</p>
+         </div>
+    `,
+};
 
         const info =
             await transporter.sendMail(mailOptions);

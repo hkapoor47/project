@@ -38,6 +38,7 @@ io.on("connection", (socket) => {
             `${socket.id} joined meeting ${meetingId}`
         );
     });
+      
     socket.on("disconnect", () => {
         console.log("Client Disconnected:", socket.id);
     });

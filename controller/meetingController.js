@@ -2,11 +2,8 @@ const Meeting = require("../models/meeting");
 const User = require("../models/user");
 const mongoose = require("mongoose");
 const { v4: uuidv4 } = require("uuid");
-
-const {
-    RtcTokenBuilder,
-    RtcRole
-} = require("agora-token");
+const { sendMeetingInvitation } = require("../services/emailService");
+const {RtcTokenBuilder,RtcRole} = require("agora-token");
 
 async function createMeeting(req, res) {
     try {
@@ -156,6 +153,18 @@ async function startMeeting(req, res) {
         meeting.status = "active";
         meeting.startedAt = new Date();
         await meeting.save();
+
+        await Promise.all(
+            meeting.members.map((member) =>
+               sendMeetingInvitation(
+               member.email,
+               member.name,
+               meeting.meetingLink,
+               host.email,
+               host.name
+           )
+          )
+        );
 
         return res.status(200).json({
             message: "Meeting started successfully",
