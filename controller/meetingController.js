@@ -34,6 +34,18 @@ async function createMeeting(req, res) {
             }
         }
 
+        const emails = members.map(member =>
+           member.email.trim().toLowerCase()
+        );
+
+        const uniqueEmails = new Set(emails);
+
+        if (emails.length !== uniqueEmails.size) {
+          return res.status(400).json({
+             message: "Duplicate email addresses are not allowed"
+           });
+        }
+
         if (!req.user || !req.user.id) {
             return res.status(401).json({
                 message:
