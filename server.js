@@ -32,7 +32,12 @@ app.set("io", io);
 
 io.on("connection", (socket) => {
     console.log("Client Connected:", socket.id);
-
+    socket.on("join-meeting", (meetingId) => {
+        socket.join(meetingId);
+        console.log(
+            `${socket.id} joined meeting ${meetingId}`
+        );
+    });
     socket.on("disconnect", () => {
         console.log("Client Disconnected:", socket.id);
     });

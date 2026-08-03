@@ -70,9 +70,13 @@ async function handleSpeechCallback(req, res) {
             );
 
         let speaker = "Unknown";
-        if(member){
-            speaker = member.name;
+
+        if (uid === 1) {
+          speaker = "Host";
+        } else if (member) {
+          speaker = member.name;
         }
+        
         meeting.transcript.push({
             uid,
             speaker,
@@ -83,14 +87,15 @@ async function handleSpeechCallback(req, res) {
             `${speaker}: ${text}`
         );
         
-        io.emit(
-            "transcript",
-            {
-                uid,
-                speaker,
-                text
-            }
-        );
+       io.to(channel).emit(
+          "transcript",
+          {
+            uid,
+            speaker,
+            text
+         }
+    );
+        
         res.sendStatus(200);
     } catch(error){
         console.error(
