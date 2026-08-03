@@ -281,7 +281,7 @@ async function joinMeeting(req, res) {
         } else {
             uid = member.uid;
             if (!uid) {
-                uid =Math.floor(Math.random() * 1000000 );
+                uid = Math.floor(100000 + Math.random() * 900000);
                 member.uid = uid;
                 await meeting.save();
             }
