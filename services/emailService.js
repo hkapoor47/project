@@ -1,11 +1,24 @@
+const dns = require("dns");
+dns.setDefaultResultOrder("ipv4first");
+
 const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
-    service: "gmail",
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
     },
+});
+
+transporter.verify((err, success) => {
+    if (err) {
+        console.log("SMTP Error:", err);
+    } else {
+        console.log("SMTP Ready");
+    }
 });
 
 async function sendMeetingInvitation(
@@ -94,7 +107,79 @@ async function sendMeetingInvitation(
         );
         throw error;
     }
+};
+
+async function sendPdf(
+    email,
+    memberName,
+    pdfPath
+) {
+    try {
+
+        if (!email || !pdfPath) {
+            throw new Error(
+                "Email and PDF path are required"
+            );
+        }
+
+
+        const mailOptions = {
+
+            from: `"Meeting App" <${process.env.EMAIL_USER}>`,
+
+            to: email,
+
+            subject: "AI Generated Meeting Minutes PDF",
+
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width:600px; margin:auto;">
+
+                    <h2>Meeting Summary</h2>
+
+                    <p>Hello <strong>${memberName}</strong>,</p>
+
+                    <p>
+                        The AI generated minutes of meeting PDF is attached below.
+                    </p>
+
+                    <p>
+                        Thank you.
+                    </p>
+
+                </div>
+            `,
+
+            attachments: [
+                {
+                    filename: "AI-MINUTES-OF-MEETING.pdf",
+                    path: pdfPath
+                }
+            ]
+
+        };
+
+
+        const info = await transporter.sendMail(mailOptions);
+
+        console.log(
+            `PDF sent successfully to ${email}`
+        );
+
+        console.log("Message ID:", info.messageId);
+
+        return info;
+
+
+    } catch(error){
+
+        console.error(
+            `Failed to send PDF to ${email}:`,
+            error.message
+        );
+
+        throw error;
+    }
 }
 module.exports = {
-    sendMeetingInvitation,
+    sendMeetingInvitation,sendPdf
 };

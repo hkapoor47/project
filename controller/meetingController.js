@@ -4,6 +4,8 @@ const mongoose = require("mongoose");
 const { v4: uuidv4 } = require("uuid");
 const { sendMeetingInvitation } = require("../services/emailService");
 const {RtcTokenBuilder,RtcRole} = require("agora-token");
+const {sendPdf}= require("../services/emailService");
+
 
 async function createMeeting(req, res) {
     try {
@@ -166,17 +168,24 @@ async function startMeeting(req, res) {
         meeting.startedAt = new Date();
         await meeting.save();
 
-        await Promise.all(
-            meeting.members.map((member) =>
-               sendMeetingInvitation(
-               member.email,
-               member.name,
-               meeting.meetingLink,
-               host.email,
-               host.name
-           )
-          )
-        );
+        console.log("Before sending emails");
+
+for (const member of meeting.members) {
+    console.log("Sending to:", member.email);
+
+    await sendMeetingInvitation(
+        member.email,
+        member.name,
+        meeting.meetingLink,
+        host.email,
+        host.name
+    );
+
+    console.log("Sent to:", member.email);
+}
+
+console.log("All emails sent");
+
 
         return res.status(200).json({
             message: "Meeting started successfully",
@@ -330,10 +339,51 @@ async function joinMeeting(req, res) {
             error: error.message
         });
     }
+};
+
+async function sharePdfEmail(req, res) {
+    try {
+        const { meetingId } = req.params;
+        const meeting = await Meeting.findOne({
+            meetingId
+        });
+
+        if (!meeting) {
+            return res.status(404).json({
+                message: "Meeting not found"
+            });
+        }
+
+        if (!meeting.pdfUrl) {
+            return res.status(400).json({
+                message: "PDF not generated yet"
+            });
+        }
+
+        for (const member of meeting.members) {
+            await sendPdf(
+                member.email,
+                member.name,
+                meeting.pdfUrl
+            );
+        }
+
+        return res.json({
+            message: "PDF shared successfully"
+        });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({
+            message: "Failed to share PDF",
+            error: error.message
+        });
+    }
 }
 
 module.exports = {
     createMeeting,
     startMeeting,
-    joinMeeting
+    joinMeeting,
+    sharePdfEmail
 };
