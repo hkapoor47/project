@@ -10,7 +10,7 @@ async function generatePdf(geminiResponse) {
                 fs.mkdirSync(generatedFolder, { recursive: true });
             }
 
-            const fileName = `AI MINUTES OF MEETING-${Date.now()}.pdf`;
+            const fileName = `AI_MINUTES_OF_MEETING-${Date.now()}.pdf`;
             const filePath = path.join(generatedFolder, fileName);
             const doc = new PDFDocument({
                 margin: 50

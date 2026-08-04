@@ -168,16 +168,23 @@ async function startMeeting(req, res) {
         meeting.startedAt = new Date();
         await meeting.save();
 
-        await Promise.all(
-            meeting.members.map((member) =>
-               sendMeetingInvitation(
-               member.email,
-               member.name,
-               meeting.meetingLink,
-               host.email,
-               host.name
-           )
-          )
+       await Promise.all(
+             meeting.members.map(async (member) => {
+               try {
+                    await sendMeetingInvitation(
+                    member.email,
+                    member.name,
+                    meeting.meetingLink,
+                    host.email,
+                    host.name
+                  );
+                  } catch (err) {
+                   console.error(
+                    `Failed to send email to ${member.email}:`,
+                       err.message
+                  );
+                }
+            })
         );
 
         return res.status(200).json({
