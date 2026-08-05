@@ -88,6 +88,13 @@ async function stopSpeechToText(agent_id) {
     const url = `https://api.agora.io/api/speech-to-text/v1/projects/${appId}/agents/${agent_id}/leave`;
 
     try {
+        console.log({
+    appId,
+    customerId,
+    channel,
+    pubBotUid,
+    subBotUid
+});
         const response = await axios.post(
             url,
             {},
