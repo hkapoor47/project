@@ -17,6 +17,8 @@ async function handleSpeechToTextStart(req, res) {
          console.log("Calling speechService...");
 
         const result = await startSpeechToText(channel, uid);
+        const io =req.app.get("io");
+        io.to(channel).emit("recording-started");
         res.status(200).json(result);
         
     } catch (error) {
@@ -115,6 +117,8 @@ async function handleSpeechToTextStop(req, res) {
             });
         }
         const result = await stopSpeechToText(agent_id);
+        const io = req.app.get("io");
+        io.to(channel).emit("recording-stopped");
         res.json(result);
     } catch (error) {
         console.log(error.response?.data || error.message);
