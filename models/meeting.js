@@ -1,10 +1,5 @@
 const mongoose = require("mongoose");
 
-
-// ==========================================
-// MEMBER SCHEMA
-// ==========================================
-
 const memberSchema = new mongoose.Schema(
     {
         name: {
@@ -30,10 +25,6 @@ const memberSchema = new mongoose.Schema(
     }
 );
 
-
-// ==========================================
-// TRANSCRIPT SCHEMA
-// ==========================================
 
 const transcriptSchema = new mongoose.Schema(
     {
@@ -63,16 +54,9 @@ const transcriptSchema = new mongoose.Schema(
 );
 
 
-// ==========================================
-// MEETING SCHEMA
-// ==========================================
-
 const meetingSchema = new mongoose.Schema(
     {
-        // ==========================================
-        // MEETING ID
-        // ==========================================
-
+       
         meetingId: {
             type: String,
             required: true,
@@ -81,23 +65,11 @@ const meetingSchema = new mongoose.Schema(
         },
 
 
-        // ==========================================
-        // HOST ID
-        // This stores the authenticated user's _id
-        // who created the meeting
-        // ==========================================
-
         hostId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             required: true,
         },
-
-
-        // ==========================================
-        // MEETING TITLE
-        // ==========================================
-
         title: {
             type: String,
             required: true,
@@ -105,19 +77,10 @@ const meetingSchema = new mongoose.Schema(
         },
 
 
-        // ==========================================
-        // MEETING LINK
-        // ==========================================
-
         meetingLink: {
             type: String,
             required: true,
         },
-
-
-        // ==========================================
-        // MEMBERS
-        // ==========================================
 
         members: {
             type: [memberSchema],
@@ -134,11 +97,6 @@ const meetingSchema = new mongoose.Schema(
             },
         },
 
-
-        // ==========================================
-        // MEETING STATUS
-        // ==========================================
-
         status: {
             type: String,
 
@@ -150,22 +108,30 @@ const meetingSchema = new mongoose.Schema(
 
             default: "scheduled",
         },
+        agentId: {
+            type: String,
+            default: null,
+        },
 
+        isRecording: {
+            type: Boolean,
+            default: false,
+        },
+        resourceId: {
+            type: String,
+            default: null,
+         },
 
-        // ==========================================
-        // TRANSCRIPT
-        // ==========================================
-
+        sid: {
+            type: String,
+            default: null,
+    },
+    
         transcript: {
             type: [transcriptSchema],
 
             default: [],
         },
-
-
-        // ==========================================
-        // GEMINI SUMMARY
-        // ==========================================
 
         summary: {
             type: String,
@@ -173,32 +139,17 @@ const meetingSchema = new mongoose.Schema(
             default: "",
         },
 
-
-        // ==========================================
-        // GENERATED PDF URL
-        // ==========================================
-
         pdfUrl: {
             type: String,
 
             default: "",
         },
 
-
-        // ==========================================
-        // MEETING START TIME
-        // ==========================================
-
         startedAt: {
             type: Date,
 
             default: null,
         },
-
-
-        // ==========================================
-        // MEETING END TIME
-        // ==========================================
 
         endedAt: {
             type: Date,

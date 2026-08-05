@@ -1,12 +1,18 @@
 const express = require("express");
 const router = express.Router();
-const { startSpeechToText,  stopSpeechToText} = require("../services/speechService");
-const { handleSpeechToTextStart ,handleSpeechToTextStop, handleSpeechCallback } = require("../controller/speechController");
 
-router.post("/start", handleSpeechToTextStart);
+const {
+    handleSpeechToTextStart,
+    handleSpeechToTextStop,
+    handleSpeechCallback
+} = require("../controller/speechController");
 
-router.post("/stop", handleSpeechToTextStop);
+const authMiddleware = require("../middleware/authMiddleware");
 
-router.post("/callback", handleSpeechCallback);
+router.post( "/start", authMiddleware, handleSpeechToTextStart);
+
+router.post( "/stop", authMiddleware, handleSpeechToTextStop);
+
+router.post("/callback",handleSpeechCallback);
 
 module.exports = router;

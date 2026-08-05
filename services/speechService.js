@@ -51,7 +51,7 @@ async function startSpeechToText(channel, uid) {
             subBotToken
         },
          callback: {
-               url: "https://your-backend.onrender.com/api/speech/callback"
+               url: `${process.env.BACKEND_URL}/api/speech/callback`
         }
     };
     try {
