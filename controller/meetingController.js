@@ -360,12 +360,25 @@ async function sharePdfEmail(req, res) {
             });
         }
 
-        for (const member of meeting.members) {
-            await sendPdf(
-                member.email,
-                member.name,
-                meeting.pdfUrl
-            );
+        const host = await User.findById(meeting.hostId);
+
+        const recipients = [
+        {
+            email: host.email,
+            name: host.name
+        },
+          ...meeting.members
+      ];
+
+
+        for(const person of recipients){
+
+        await sendPdf(
+            person.email,
+            person.name,
+            meeting.pdfUrl
+        );
+
         }
 
         return res.json({

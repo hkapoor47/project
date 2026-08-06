@@ -3,11 +3,6 @@ const {
     stopSpeechToText
 } = require("../services/speechService");
 
-const {
-    startCloudRecording,
-    stopCloudRecording
-} = require("../services/recordingService");
-
 const Meeting = require("../models/meeting");
 
 async function handleSpeechToTextStart(req, res) {
@@ -19,134 +14,115 @@ async function handleSpeechToTextStart(req, res) {
         console.log("Request Body:", req.body);
         console.log("Authenticated User:", req.user);
 
-        const { channel, uid } = req.body;
 
-        if (!channel || uid === undefined) {
+        const { channel } = req.body;
+
+
+        if (!channel) {
             return res.status(400).json({
-                message: "channel and uid are required"
+                message:"channel is required"
             });
         }
+
 
         const meeting = await Meeting.findOne({
             meetingId: channel
         });
 
-        if (!meeting) {
+
+        if(!meeting){
             return res.status(404).json({
-                message: "Meeting not found"
+                message:"Meeting not found"
             });
         }
+
 
         const userId =
             req.user.id ||
             req.user._id ||
             req.user.userId;
 
-        if (!userId || meeting.hostId.toString() !== userId) {
+
+        if(
+            !userId ||
+            meeting.hostId.toString() !== userId.toString()
+        ){
             return res.status(403).json({
-                message: "Only host can start recording"
+                message:"Only host can start STT"
             });
         }
 
-        if (meeting.isRecording) {
+
+        if(meeting.isRecording){
             return res.status(400).json({
-                message: "Recording already started"
+                message:"STT already running"
             });
         }
 
-        console.log("Meeting Found:", meeting.meetingId);
-        console.log("Starting Cloud Recording...");
 
-        const recording =
-            await startCloudRecording(channel);
+        console.log("Starting Agora Speech To Text...");
 
-        console.log("Cloud Recording Started:");
-        console.log(recording);
 
-        let result;
+        const result =
+            await startSpeechToText(channel);
 
-        try {
 
-            console.log("Starting Speech To Text...");
+        console.log(
+            "Agora STT Result:",
+            result
+        );
 
-            result = await startSpeechToText(
-                channel,
-                uid
-            );
 
-            console.log("Speech To Text Started:");
-            console.log(result);
+        meeting.agentId =
+            result.agent_id;
 
-        } catch (sttError) {
 
-            console.log("STT failed. Stopping Cloud Recording...");
-
-            try {
-
-                await stopCloudRecording(
-                    channel,
-                    recording.resourceId,
-                    recording.sid
-                );
-
-                console.log("Cloud Recording stopped successfully.");
-
-            } catch (stopError) {
-
-                console.log(
-                    "Failed to stop Cloud Recording:"
-                );
-
-                console.log(
-                    stopError.response?.data ||
-                    stopError.message
-                );
-            }
-
-            throw sttError;
-        }
-
-        meeting.agentId = result.agent_id;
-        meeting.resourceId = recording.resourceId;
-        meeting.sid = recording.sid;
         meeting.isRecording = true;
-        meeting.status = "active";
+        meeting.status="active";
         meeting.startedAt = new Date();
+
 
         await meeting.save();
 
-        console.log("Meeting updated successfully.");
 
         const io = req.app.get("io");
 
-        io.to(channel).emit("recording-started");
 
-        return res.status(200).json({
-            message: "Recording and STT started successfully",
-            agent_id: result.agent_id,
-            resourceId: recording.resourceId,
-            sid: recording.sid
-        });
-
-    } catch (error) {
-
-        console.log("========== Speech Start Error ==========");
-
-        console.log("Status:", error.response?.status);
-
-        console.log(
-            "Response:",
-            error.response?.data
+        io.to(channel).emit(
+            "recording-started"
         );
 
+
+        return res.status(200).json({
+
+            message:
+            "Speech To Text started successfully",
+
+            agent_id:
+            result.agent_id
+        });
+
+
+    } catch(error){
+
         console.log(
-            "Message:",
+            "========== Speech Start Error =========="
+        );
+
+
+        console.log(
+            error.response?.data ||
             error.message
         );
 
+
         return res.status(500).json({
-            message: "Failed to start STT",
-            error: error.response?.data || error.message
+
+            message:"Failed to start STT",
+
+            error:
+            error.response?.data ||
+            error.message
         });
     }
 }
@@ -174,7 +150,7 @@ async function handleSpeechCallback(req, res) {
             .map(word => word.text)
             .join(" ");
 
-        const uid = Number(body.uid);
+        const uid = Number(body.uid || body.rtcuid);
 
         const channel = body.channelName;
 
@@ -269,93 +245,111 @@ async function handleSpeechCallback(req, res) {
     }
 }
 
-async function handleSpeechToTextStop(req, res) {
-    try {
-        const { channel } = req.body;
+async function handleSpeechToTextStop(req,res){
 
-        if (!channel) {
+    try{
+
+        const {channel}=req.body;
+
+
+        if(!channel){
             return res.status(400).json({
-                message: "channel is required"
+                message:"channel is required"
             });
         }
 
-        const meeting = await Meeting.findOne({
-            meetingId: channel
+
+        const meeting =
+        await Meeting.findOne({
+            meetingId:channel
         });
 
-        if (!meeting) {
+
+        if(!meeting){
             return res.status(404).json({
-                message: "Meeting not found"
+                message:"Meeting not found"
             });
         }
+
 
         const userId =
-            req.user.id ||
-            req.user._id ||
-            req.user.userId;
+        req.user.id ||
+        req.user._id ||
+        req.user.userId;
 
-        if (!userId || meeting.hostId.toString() !== userId) {
+
+        if(
+            !userId ||
+            meeting.hostId.toString()
+            !== userId.toString()
+        ){
+
             return res.status(403).json({
-                message: "Only host can stop recording"
+                message:"Only host can stop STT"
             });
         }
 
-        if (!meeting.agentId) {
+
+        if(!meeting.agentId){
+
             return res.status(400).json({
-                message: "STT is not running"
+                message:"STT is not running"
             });
         }
 
-        console.log("========== STOP STT ==========");
-        console.log("Channel:", channel);
-        console.log("Agent ID:", meeting.agentId);
-        console.log("Resource ID:", meeting.resourceId);
-        console.log("SID:", meeting.sid);
 
-        // Stop Speech-to-Text
-        const sttResult = await stopSpeechToText(
+        console.log(
+            "Stopping Agora STT:",
             meeting.agentId
         );
 
-        // Stop Cloud Recording (if running)
-        let recordingResult = null;
 
-        if (meeting.resourceId && meeting.sid) {
-            recordingResult = await stopCloudRecording(
-                channel,
-                meeting.resourceId,
-                meeting.sid
-            );
-        }
+        const result =
+        await stopSpeechToText(
+            meeting.agentId
+        );
 
-        meeting.isRecording = false;
-        meeting.status = "ended";
-        meeting.endedAt = new Date();
+
+        meeting.isRecording=false;
+        meeting.status="ended";
+        meeting.endedAt=new Date();
+
 
         await meeting.save();
 
-        const io = req.app.get("io");
 
-        io.to(channel).emit("recording-stopped");
+        const io=req.app.get("io");
 
-        console.log("STT stopped successfully");
-        console.log("==============================");
 
-        return res.status(200).json({
-            success: true,
-            message: "Recording and STT stopped successfully",
-            sttResult,
-            recordingResult
+        io.to(channel).emit(
+            "recording-stopped"
+        );
+
+
+        return res.json({
+
+            message:
+            "Speech To Text stopped successfully",
+
+            result
         });
 
-    } catch (error) {
-        console.log("STOP STT ERROR");
-        console.log(error.response?.data || error.message);
+
+    }catch(error){
+
+        console.log(
+            error.response?.data ||
+            error.message
+        );
+
 
         return res.status(500).json({
-            success: false,
-            message: "Failed to stop STT",
-            error: error.response?.data || error.message
+
+            message:"Failed to stop STT",
+
+            error:
+            error.response?.data ||
+            error.message
         });
     }
 }
