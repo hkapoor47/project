@@ -3,7 +3,7 @@ const { RtcTokenBuilder, RtcRole } = require("agora-token");
 
 console.log("Inside speechService");
 
-async function startSpeechToText(channel, uid) {
+async function startSpeechToText(channel) {
     const customerId = process.env.AGORA_CUSTOMER_ID;
     const customerSecret = process.env.AGORA_CUSTOMER_SECRET;
     const appId = process.env.AGORA_APP_ID;
@@ -26,7 +26,7 @@ async function startSpeechToText(channel, uid) {
         `${customerId}:${customerSecret}`
     ).toString("base64");
 
-    const role = RtcRole.PUBLISHER;
+    const role = RtcRole.SUBSCRIBER;
     const expireTime = Math.floor(Date.now() / 1000) + 3600;
 
     const pubBotUid = 5001;
@@ -75,6 +75,12 @@ async function startSpeechToText(channel, uid) {
         customerId,
         callback: `${process.env.BACKEND_URL}/api/speech/callback`,
     });
+    console.log("RTC CONFIG CHECK:");
+console.log({
+    channelName: body.rtcConfig.channelName,
+    pubBotUid: body.rtcConfig.pubBotUid,
+    subBotUid: body.rtcConfig.subBotUid
+});
 
     try {
         const response = await axios.post(url, body, {
