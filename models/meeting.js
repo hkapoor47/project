@@ -117,15 +117,7 @@ const meetingSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
         },
-        resourceId: {
-            type: String,
-            default: null,
-         },
-
-        sid: {
-            type: String,
-            default: null,
-    },
+       
     
         transcript: {
             type: [transcriptSchema],

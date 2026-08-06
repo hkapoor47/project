@@ -150,7 +150,11 @@ async function handleSpeechCallback(req, res) {
             .map(word => word.text)
             .join(" ");
 
-        const uid = Number(body.uid || body.rtcuid);
+        const uid = Number(
+    body.uid || 
+    body.rtcUid ||
+    body.rtcuid
+);
 
         const channel = body.channelName;
 
