@@ -15,6 +15,9 @@ const transporter = nodemailer.createTransport({
         user: process.env.EMAIL_SMTP_USER,
         pass: process.env.EMAIL_PASS,
     },
+     connectionTimeout: 30000,
+    greetingTimeout: 30000,
+    socketTimeout: 30000,
 });
 
 transporter.verify((err, success) => {
@@ -107,12 +110,15 @@ async function sendMeetingInvitation(
         return info;
 
     } catch (error) {
-        console.error(
-            `Failed to send meeting invitation to ${email}:`,
-            error.message
-        );
-        throw error;
-    }
+    console.error("Full email error:");
+    console.error(error);
+
+    console.error("Code:", error.code);
+    console.error("Command:", error.command);
+    console.error("Response:", error.response);
+
+    throw error;
+}
 }
 
 async function sendPdf(
