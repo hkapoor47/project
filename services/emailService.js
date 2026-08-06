@@ -12,7 +12,7 @@ const transporter = nodemailer.createTransport({
     port: Number(process.env.EMAIL_PORT),
     secure: false,
     auth: {
-        user: process.env.EMAIL_USER,
+        user: process.env.EMAIL_SMTP_USER,
         pass: process.env.EMAIL_PASS,
     },
 });
@@ -33,16 +33,20 @@ async function sendMeetingInvitation(
     hostName
 ) {
     try {
-        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-            throw new Error("EMAIL_USER or EMAIL_PASS is missing");
-        }
+      if (
+    !process.env.EMAIL_SMTP_USER ||
+    !process.env.EMAIL_PASS ||
+    !process.env.EMAIL_FROM
+) {
+    throw new Error("Email configuration is missing");
+}
 
         if (!email || !meetingLink) {
             throw new Error("Email address and meeting link are required");
         }
 
         const mailOptions = {
-            from: `"Meeting App" <${process.env.EMAIL_USER}>`,
+            from: `"Meeting App" <${process.env.EMAIL_FROM}>`,
             to: email,
             replyTo: hostEmail,
             subject: `${hostName} has started the meeting`,
@@ -117,8 +121,12 @@ async function sendPdf(
     pdfPath
 ) {
     try {
-        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-            throw new Error("EMAIL_USER or EMAIL_PASS is missing");
+        if (
+        !process.env.EMAIL_SMTP_USER ||
+        !process.env.EMAIL_PASS ||
+        !process.env.EMAIL_FROM
+       ) {
+        throw new Error("Email configuration is missing");
         }
 
         if (!email || !pdfPath) {
@@ -126,7 +134,7 @@ async function sendPdf(
         }
 
         const mailOptions = {
-            from: `"Meeting App" <${process.env.EMAIL_USER}>`,
+            from: `"Meeting App" <${process.env.EMAIL_FROM}>`,
             to: email,
             subject: "AI Generated Meeting Minutes PDF",
             html: `
