@@ -206,156 +206,156 @@ async function startMeeting(req, res) {
         });
     }
 }
-
 async function joinMeeting(req, res) {
     try {
-        const {
-            meetingId
-        } = req.params;
+        const { meetingId } = req.params;
 
-        if (
-            !req.user||
-            !req.user.email||
-            !req.user.id
-        ) {
+        if (!req.user || !req.user.email || !req.user.id) {
             return res.status(401).json({
-                message:"Authenticated user not found"
+                message: "Authenticated user not found"
             });
         }
 
-        const userId =req.user.id;
+        const userId = req.user.id;
         const email = req.user.email;
-        console.log( "Joining User ID:",userId );
-        console.log("Joining User Email:", email);
 
-        if (!meetingId) {
-            return res.status(400).json({
-                message: "Meeting ID is required"
-            });
-        }
-        console.log(  "Database:", mongoose.connection.name );
-        console.log( "Meeting ID:", meetingId);
+        const meeting = await Meeting.findOne({ meetingId });
 
-        const meeting =
-            await Meeting.findOne({
-                meetingId
-            });
         if (!meeting) {
             return res.status(404).json({
-                message:"Meeting not found"
+                message: "Meeting not found"
             });
         }
-        if ( meeting.status === "scheduled" ) {
+
+        if (meeting.status === "scheduled") {
             return res.status(400).json({
                 message: "Meeting has not been started by the host yet"
             });
         }
-        if ( meeting.status === "ended"
-        ) {
+
+        if (meeting.status === "ended") {
             return res.status(400).json({
                 message: "Meeting already ended"
             });
         }
+
         const isHost =
             meeting.hostId &&
-            meeting.hostId.toString() ===
-            userId.toString();
+            meeting.hostId.toString() === userId.toString();
 
+        const member = meeting.members.find(
+            (member) =>
+                member.email.toLowerCase() === email.toLowerCase()
+        );
 
-        const member =meeting.members.find(
-                (member) =>
-                    member.email.toLowerCase() ===
-                    email.toLowerCase()
-            );
-
-        if ( !isHost &&!member) {
+        if (!isHost && !member) {
             return res.status(403).json({
                 message: "You are not invited to this meeting"
             });
         }
 
-        let host = null;
-        if (isHost) {
-            host =  await User.findById( userId);
-            if (!host) {
-                return res.status(404).json({
-                    message: "Host user not found"
-                });
-            }
+        const host = await User.findById(meeting.hostId);
+
+        if (!host) {
+            return res.status(404).json({
+                message: "Host user not found"
+            });
         }
 
         let uid;
-       if (isHost) {
-          uid = 1;
+
+        if (isHost) {
+            uid = 1;
         } else {
-          uid = member.uid;
+            uid = member.uid;
 
-        if (!uid) {
-            uid = Math.floor(100000 + Math.random() * 900000);
-            member.uid = uid;
+            if (!uid) {
+                uid = Math.floor(100000 + Math.random() * 900000);
+                member.uid = uid;
+            }
+
+            member.status = "joined";
+            member.joinedAt = new Date();
+
+            await meeting.save();
         }
 
-         member.status = "joined";
-        member.joinedAt = new Date();
+        const io = req.app.get("io");
 
-         await meeting.save();
-        }
-        const appId =process.env.AGORA_APP_ID;
-        const appCertificate =process.env.AGORA_APP_CERTIFICATE;
-        if ( !appId || !appCertificate
-        ) {
+        const participants = [
+            {
+                name: host.name,
+                email: host.email,
+                uid: 1
+            },
+            ...meeting.members
+                .filter(member => member.status === "joined")
+                .map(member => ({
+                    name: member.name,
+                    email: member.email,
+                    uid: member.uid
+                }))
+        ];
+
+        io.to(meetingId).emit(
+            "participants-updated",
+            participants
+        );
+
+        const appId = process.env.AGORA_APP_ID;
+        const appCertificate = process.env.AGORA_APP_CERTIFICATE;
+
+        if (!appId || !appCertificate) {
             return res.status(500).json({
                 message: "Agora credentials missing"
             });
         }
+
         const role = RtcRole.PUBLISHER;
-        const privilegeExpireTime =  Math.floor(Date.now() / 1000) + 3600;
-        const token =
-            RtcTokenBuilder.buildTokenWithUid(
-                appId,
-                appCertificate,
-                meeting.meetingId,
-                uid,
-                role,
-                privilegeExpireTime
-            );
+
+        const privilegeExpireTime =
+            Math.floor(Date.now() / 1000) + 3600;
+
+        const token = RtcTokenBuilder.buildTokenWithUid(
+            appId,
+            appCertificate,
+            meeting.meetingId,
+            uid,
+            role,
+            privilegeExpireTime
+        );
+
         return res.status(200).json({
             message: "You can join the meeting",
-            meetingId:  meeting.meetingId,
+            meetingId: meeting.meetingId,
             meetingLink: meeting.meetingLink,
             agoraChannel: meeting.meetingId,
             token,
             uid,
             expireAt: privilegeExpireTime,
-            member: isHost ? {
-                    name: host.name,
-                    email: host.email
-                } : {
-                    name:  member.name,
-                    email: member.email
-                }
+            member: {
+                name: isHost ? host.name : member.name,
+                email: isHost ? host.email : member.email
+            }
         });
+
     } catch (error) {
-        console.error(
-            "Join Meeting Error:", error
-        );
+        console.error("Join Meeting Error:", error);
+
         return res.status(500).json({
-            message:"Failed to join meeting",
+            message: "Failed to join meeting",
             error: error.message
         });
     }
-};
+}
 
 async function leaveMeeting(req, res) {
     try {
 
         const { meetingId } = req.params;
-
         const userEmail = req.user.email;
 
-        const meeting = await Meeting.findOne({
-            meetingId
-        });
+        const meeting = await Meeting.findOne({ meetingId });
 
         if (!meeting) {
             return res.status(404).json({
@@ -364,7 +364,9 @@ async function leaveMeeting(req, res) {
         }
 
         const member = meeting.members.find(
-            member => member.email === userEmail
+            member =>
+                member.email.toLowerCase() ===
+                userEmail.toLowerCase()
         );
 
         if (!member) {
@@ -378,12 +380,29 @@ async function leaveMeeting(req, res) {
 
         await meeting.save();
 
+        const host = await User.findById(meeting.hostId);
+
+        const participants = [
+            {
+                name: host.name,
+                email: host.email,
+                uid: 1
+            },
+            ...meeting.members
+                .filter(member => member.status === "joined")
+                .map(member => ({
+                    name: member.name,
+                    email: member.email,
+                    uid: member.uid
+                }))
+        ];
+
         const io = req.app.get("io");
 
-        io.to(meetingId).emit("participant-left", {
-            name: member.name,
-            email: member.email
-        });
+        io.to(meetingId).emit(
+            "participants-updated",
+            participants
+        );
 
         return res.status(200).json({
             message: "Left meeting successfully"
@@ -391,7 +410,7 @@ async function leaveMeeting(req, res) {
 
     } catch (error) {
 
-        console.log(error);
+        console.error("Leave Meeting Error:", error);
 
         return res.status(500).json({
             message: "Failed to leave meeting",
