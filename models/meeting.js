@@ -1,29 +1,42 @@
 const mongoose = require("mongoose");
 
-const memberSchema = new mongoose.Schema(
-    {
-        name: {
-            type: String,
-            required: true,
-            trim: true,
-        },
-
-        email: {
-            type: String,
-            required: true,
-            trim: true,
-            lowercase: true,
-        },
-
-        uid: {
-            type: Number,
-            default: null,
-        },
+const memberSchema = new mongoose.Schema({
+    name: {
+        type: String,
+        required: true,
+        trim: true,
     },
-    {
-        _id: false,
+
+    email: {
+        type: String,
+        required: true,
+        trim: true,
+        lowercase: true,
+    },
+
+    uid: {
+        type: Number,
+        default: null,
+    },
+
+    status: {
+        type: String,
+        enum: ["invited", "joined", "left"],
+        default: "invited",
+    },
+
+    joinedAt: {
+        type: Date,
+        default: null,
+    },
+
+    leftAt: {
+        type: Date,
+        default: null,
     }
-);
+}, {
+    _id: false
+});
 
 
 const transcriptSchema = new mongoose.Schema(

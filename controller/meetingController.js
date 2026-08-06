@@ -285,15 +285,20 @@ async function joinMeeting(req, res) {
         }
 
         let uid;
-        if (isHost) {
-            uid = 1;
+       if (isHost) {
+          uid = 1;
         } else {
-            uid = member.uid;
-            if (!uid) {
-                uid = Math.floor(100000 + Math.random() * 900000);
-                member.uid = uid;
-                await meeting.save();
-            }
+          uid = member.uid;
+
+        if (!uid) {
+            uid = Math.floor(100000 + Math.random() * 900000);
+            member.uid = uid;
+        }
+
+         member.status = "joined";
+        member.joinedAt = new Date();
+
+         await meeting.save();
         }
         const appId =process.env.AGORA_APP_ID;
         const appCertificate =process.env.AGORA_APP_CERTIFICATE;
@@ -340,6 +345,61 @@ async function joinMeeting(req, res) {
         });
     }
 };
+
+async function leaveMeeting(req, res) {
+    try {
+
+        const { meetingId } = req.params;
+
+        const userEmail = req.user.email;
+
+        const meeting = await Meeting.findOne({
+            meetingId
+        });
+
+        if (!meeting) {
+            return res.status(404).json({
+                message: "Meeting not found"
+            });
+        }
+
+        const member = meeting.members.find(
+            member => member.email === userEmail
+        );
+
+        if (!member) {
+            return res.status(404).json({
+                message: "Participant not found"
+            });
+        }
+
+        member.status = "left";
+        member.leftAt = new Date();
+
+        await meeting.save();
+
+        const io = req.app.get("io");
+
+        io.to(meetingId).emit("participant-left", {
+            name: member.name,
+            email: member.email
+        });
+
+        return res.status(200).json({
+            message: "Left meeting successfully"
+        });
+
+    } catch (error) {
+
+        console.log(error);
+
+        return res.status(500).json({
+            message: "Failed to leave meeting",
+            error: error.message
+        });
+
+    }
+}
 
 async function sharePdfEmail(req, res) {
     try {
@@ -398,5 +458,6 @@ module.exports = {
     createMeeting,
     startMeeting,
     joinMeeting,
+    leaveMeeting,
     sharePdfEmail
 };
