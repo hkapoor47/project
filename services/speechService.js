@@ -68,7 +68,6 @@ async function startSpeechToText(channel) {
         },
     };
 
-    console.log("========== STARTING AGORA STT ==========");
     console.log({
         channel,
         appId,
@@ -131,7 +130,7 @@ async function stopSpeechToText(agent_id) {
     const url =
         `https://api.agora.io/api/speech-to-text/v1/projects/${appId}/agents/${agent_id}/leave`;
 
-    console.log("========== STOPPING AGORA STT ==========");
+  
     console.log({
         appId,
         customerId,

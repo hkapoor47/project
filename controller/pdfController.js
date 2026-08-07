@@ -23,13 +23,10 @@ async function handleGeneratePdf(req, res) {
             });
         }
 
-
         const pdf = await generatePdf(geminiResponse);
 
         console.log("PDF generated:", pdf.filePath);
 
-
-        // Save PDF path in meeting document
         const meeting = await Meeting.findOne({
             meetingId
         });
@@ -41,11 +38,9 @@ async function handleGeneratePdf(req, res) {
             });
         }
 
-
         meeting.pdfUrl = pdf.filePath;
 
         await meeting.save();
-
 
         return res.download(
             pdf.filePath,
@@ -54,9 +49,7 @@ async function handleGeneratePdf(req, res) {
 
 
     } catch (error) {
-
         console.error("PDF generation error:", error);
-
         return res.status(500).json({
             message: "Failed to generate PDF",
             error: error.message

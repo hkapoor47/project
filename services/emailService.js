@@ -82,13 +82,10 @@ async function sendMeetingInvitation(
         );
 
         console.log("Invitation sent:", response.data);
-
         return response.data;
 
     } catch (err) {
-
         console.error(err.response?.data || err.message);
-
         throw err;
     }
 }
@@ -134,19 +131,14 @@ async function sendPdf(email, memberName, pdfPath) {
                 }
             }
         );
-
         console.log(response.data);
-
         return response.data;
 
     } catch (err) {
-
         console.error(err.response?.data || err.message);
-
         throw err;
     }
 }
-
 
 module.exports = {
     sendMeetingInvitation,sendPdf
