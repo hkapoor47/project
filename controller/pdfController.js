@@ -31,13 +31,12 @@ async function handleGeneratePdf(req, res) {
             meetingId
         });
 
-
         if (!meeting) {
             return res.status(404).json({
                 message: "Meeting not found"
             });
         }
-
+        
         meeting.pdfUrl = pdf.filePath;
 
         await meeting.save();
@@ -47,7 +46,6 @@ async function handleGeneratePdf(req, res) {
             pdf.fileName
         );
 
-
     } catch (error) {
         console.error("PDF generation error:", error);
         return res.status(500).json({
@@ -56,7 +54,6 @@ async function handleGeneratePdf(req, res) {
         });
     }
 }
-
 
 module.exports = {
     handleGeneratePdf
