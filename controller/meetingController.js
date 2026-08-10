@@ -78,12 +78,16 @@ async function createMeeting(req, res) {
     `${process.env.FRONTEND_URL}/meeting/${meetingId}`
      );
 
-meetingUrl.searchParams.set(
-    "hostName",
-    host.name
-);
+     meetingUrl.searchParams.set(
+        "hostName",
+        host.name
+       );
+    meetingUrl.searchParams.set(
+       "title",
+        title
+      );
 
-const meetingLink = meetingUrl.toString();
+    const meetingLink = meetingUrl.toString();
 
         const meeting = await Meeting.create({
                 meetingId,

@@ -1,12 +1,18 @@
 require("dotenv").config();
+
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+
 const auth = require("./middleware/authMiddleware");
 
 const app = express();
 
 const PORT = process.env.PORT || 5000;
+
+// =====================================================
+// ROUTES
+// =====================================================
 
 const speech = require("./routes/speech");
 const agora = require("./routes/agora");
@@ -15,11 +21,31 @@ const llmRoute = require("./routes/llm");
 const meetingRoute = require("./routes/meeting");
 const pdfRoute = require("./routes/pdf");
 
+// =====================================================
+// HTTP + SOCKET.IO
+// =====================================================
+
 const http = require("http");
 const { Server } = require("socket.io");
 
+const server = http.createServer(app);
+
+// =====================================================
+// MIDDLEWARE
+// =====================================================
+
 app.use(express.json());
-app.use(cors());
+
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  })
+);
+
+// =====================================================
+// API ROUTES
+// =====================================================
 
 app.use("/api/llm", llmRoute);
 app.use("/api/test", testRoute);
@@ -27,100 +53,367 @@ app.use("/api/agora", agora);
 app.use("/api/meeting", meetingRoute);
 app.use("/api/pdf", pdfRoute);
 
-const server = http.createServer(app);
+app.use("/api/auth", require("./routes/auth"));
+app.use("/api/speech", speech);
+
+// =====================================================
+// SOCKET.IO
+// =====================================================
 
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: true,
     methods: ["GET", "POST"],
+    credentials: true,
   },
 });
 
 app.set("io", io);
 
+// =====================================================
+// PARTICIPANT TRACKING
+// =====================================================
+
+const meetingParticipants = new Map();
+
+// =====================================================
+// SOCKET CONNECTION
+// =====================================================
+
 io.on("connection", (socket) => {
-  console.log("Client Connected:", socket.id);
+  console.log(
+    "Client Connected:",
+    socket.id
+  );
 
-socket.on("join-meeting", (data) => {
+  // ===================================================
+  // JOIN MEETING
+  // ===================================================
 
-    socket.join(data.meetingId);
+  socket.on(
+    "join-meeting",
+    (data) => {
+      try {
+        const {
+          meetingId,
+          name,
+          email,
+          role,
+        } = data || {};
 
-    console.log(" SOCKET JOINED MEETING");
-    console.log("Socket ID:", socket.id);
-    console.log("Meeting ID:", data.meetingId);
-    console.log("Name:", data.name);
-    console.log("Role:", data.role);
+        if (!meetingId) {
+          console.log(
+            "Meeting ID missing"
+          );
+          return;
+        }
 
-    const room = io.sockets.adapter.rooms.get(data.meetingId);
+        socket.join(meetingId);
 
-    console.log(
-        "SOCKETS CURRENTLY IN ROOM:",
-        room ? [...room] : []
+        // Save meeting ID on socket
+        socket.meetingId =
+          meetingId;
+
+        // Create meeting map
+        if (
+          !meetingParticipants.has(
+            meetingId
+          )
+        ) {
+          meetingParticipants.set(
+            meetingId,
+            new Map()
+          );
+        }
+
+        const roomParticipants =
+          meetingParticipants.get(
+            meetingId
+          );
+
+        const participant = {
+          socketId: socket.id,
+          name:
+            name || "Unknown",
+          email:
+            email || "",
+          role:
+            role || "participant",
+        };
+
+        roomParticipants.set(
+          socket.id,
+          participant
+        );
+
+        console.log(
+          "=============================="
+        );
+
+        console.log(
+          "SOCKET JOINED MEETING"
+        );
+
+        console.log(
+          "Socket ID:",
+          socket.id
+        );
+
+        console.log(
+          "Meeting ID:",
+          meetingId
+        );
+
+        console.log(
+          "Name:",
+          name
+        );
+
+        console.log(
+          "Email:",
+          email
+        );
+
+        console.log(
+          "Role:",
+          role
+        );
+
+        console.log(
+          "=============================="
+        );
+
+        const participants =
+          Array.from(
+            roomParticipants.values()
+          );
+
+        console.log(
+          "CURRENT PARTICIPANTS:",
+          participants
+        );
+
+        // Send updated participant list
+        // to everyone in the meeting
+        io.to(meetingId).emit(
+          "participants-updated",
+          participants
+        );
+
+      } catch (error) {
+        console.error(
+          "join-meeting error:",
+          error
+        );
+      }
+    }
+  );
+
+  // ===================================================
+  // RECORDING STARTED
+  // ===================================================
+
+  socket.on(
+    "recording-started",
+    (meetingId) => {
+      console.log(
+        "Recording started:",
+        meetingId
+      );
+
+      socket
+        .to(meetingId)
+        .emit(
+          "recording-started"
+        );
+    }
+  );
+
+  // ===================================================
+  // RECORDING STOPPED
+  // ===================================================
+
+  socket.on(
+    "recording-stopped",
+    (meetingId) => {
+      console.log(
+        "Recording stopped:",
+        meetingId
+      );
+
+      socket
+        .to(meetingId)
+        .emit(
+          "recording-stopped"
+        );
+    }
+  );
+
+  // ===================================================
+  // TRANSCRIPT
+  // ===================================================
+
+  socket.on(
+    "transcript",
+    (data) => {
+      try {
+        console.log(
+          "TRANSCRIPT RECEIVED BY BACKEND:"
+        );
+
+        console.log(data);
+
+        if (
+          !data ||
+          !data.meetingId
+        ) {
+          console.log(
+            "Transcript meeting ID missing"
+          );
+
+          return;
+        }
+
+        const room =
+          io.sockets.adapter.rooms.get(
+            data.meetingId
+          );
+
+        console.log(
+          "SOCKETS IN ROOM:",
+          room
+            ? [...room]
+            : []
+        );
+
+        /*
+         * Send transcript to everyone
+         * except the sender.
+         *
+         * Sender already updates
+         * its own transcript locally.
+         */
+        socket
+          .to(data.meetingId)
+          .emit(
+            "transcript",
+            data
+          );
+
+        console.log(
+          "TRANSCRIPT BROADCAST TO ROOM:",
+          data.meetingId
+        );
+
+      } catch (error) {
+        console.error(
+          "Transcript socket error:",
+          error
+        );
+      }
+    }
+  );
+
+  // ===================================================
+  // DISCONNECT
+  // ===================================================
+
+  socket.on(
+    "disconnect",
+    () => {
+      console.log(
+        "Client Disconnected:",
+        socket.id
+      );
+
+      const meetingId =
+        socket.meetingId;
+
+      if (!meetingId) {
+        return;
+      }
+
+      const roomParticipants =
+        meetingParticipants.get(
+          meetingId
+        );
+
+      if (!roomParticipants) {
+        return;
+      }
+
+      // Remove disconnected user
+      roomParticipants.delete(
+        socket.id
+      );
+
+      const participants =
+        Array.from(
+          roomParticipants.values()
+        );
+
+      console.log(
+        "UPDATED PARTICIPANTS AFTER DISCONNECT:",
+        participants
+      );
+
+      // Tell remaining users
+      io.to(meetingId).emit(
+        "participants-updated",
+        participants
+      );
+
+      // Remove empty meeting
+      if (
+        roomParticipants.size === 0
+      ) {
+        meetingParticipants.delete(
+          meetingId
+        );
+      }
+    }
+  );
+});
+
+app.get(
+  "/",
+  (req, res) => {
+    res.send(
+      "Backend is running successfully"
     );
-    
-});
+  }
+);
 
-  socket.on("recording-started", (meetingId) => {
-    console.log("Recording started:", meetingId);
-
-    socket.to(meetingId).emit("recording-started");
-  });
-
-  
-  socket.on("recording-stopped", (meetingId) => {
-    console.log("Recording stopped:", meetingId);
-
-    socket.to(meetingId).emit("recording-stopped");
-  });
-
- 
- socket.on("transcript", (data) => {
-    console.log("TRANSCRIPT RECEIVED BY BACKEND:");
-    console.log(data);
-
-    const room = io.sockets.adapter.rooms.get(data.meetingId);
-
-    console.log(
-        "SOCKETS IN ROOM:",
-        room ? [...room] : []
-    );
-
-    socket.to(data.meetingId).emit("transcript", data);
-
-    console.log(
-        "TRANSCRIPT BROADCAST TO ROOM:",
-        data.meetingId
-    );
-});
-
-  socket.on("disconnect", () => {
-    console.log("Client Disconnected:", socket.id);
-  });
-});
-
-app.get("/", (req, res) => {
-  res.send("Backend is running successfully");
-});
-
-app.get("/profile", auth, (req, res) => {
-  res.json({
-    message: "This is a protected route",
-    user: req.user,
-  });
-});
-
-app.use("/api/auth", require("./routes/auth"));
-app.use("/api/speech", speech);
+app.get(
+  "/profile",
+  auth,
+  (req, res) => {
+    res.json({
+      message:
+        "This is a protected route",
+      user: req.user,
+    });
+  }
+);
 
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
-    console.log("MongoDB connected successfully");
+    console.log(
+      "MongoDB connected successfully"
+    );
 
-    server.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
-    });
+    server.listen(
+      PORT,
+      () => {
+        console.log(
+          `Server is running on port ${PORT}`
+        );
+      }
+    );
   })
   .catch((err) => {
-    console.log(err);
+    console.error(
+      "MongoDB connection error:",err
+    );
   });
