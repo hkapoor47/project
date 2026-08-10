@@ -1,5 +1,4 @@
 require("dotenv").config();
-
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -21,6 +20,7 @@ const { Server } = require("socket.io");
 
 app.use(express.json());
 app.use(cors());
+
 app.use("/api/llm", llmRoute);
 app.use("/api/test", testRoute);
 app.use("/api/agora", agora);
@@ -38,117 +38,63 @@ const io = new Server(server, {
 
 app.set("io", io);
 
-const meetingParticipants = {};
-
 io.on("connection", (socket) => {
+  console.log("Client Connected:", socket.id);
 
-  console.log("Client connected:", socket.id);
+socket.on("join-meeting", (data) => {
 
-  socket.on("join-meeting", (data) => {
-    const {
-      meetingId,
-      name,
-      role,
-      email,
-    } = data;
+    socket.join(data.meetingId);
 
-    if (!meetingId) {return;}
+    console.log(" SOCKET JOINED MEETING");
+    console.log("Socket ID:", socket.id);
+    console.log("Meeting ID:", data.meetingId);
+    console.log("Name:", data.name);
+    console.log("Role:", data.role);
 
-    socket.join(meetingId);
+    const room = io.sockets.adapter.rooms.get(data.meetingId);
 
-    if (!meetingParticipants[meetingId]) {
-      meetingParticipants[meetingId] = [];
-    }
-
-    const exists =
-      meetingParticipants[meetingId].some(
-        (participant) =>
-          participant.socketId === socket.id
-      );
-
-    if (!exists) {
-      meetingParticipants[meetingId].push({
-        socketId: socket.id,
-        name: name || "Unknown",
-        email: email || "",
-        role: role || "participant",
-      });
-    }
-
-    io.to(meetingId).emit(
-      "participants-updated",
-      meetingParticipants[meetingId]
+    console.log(
+        "SOCKETS CURRENTLY IN ROOM:",
+        room ? [...room] : []
     );
+    
+});
+
+  socket.on("recording-started", (meetingId) => {
+    console.log("Recording started:", meetingId);
+
+    socket.to(meetingId).emit("recording-started");
   });
 
-  socket.on(
-    "recording-started",
-    (meetingId) => {
-      if (!meetingId) {
-        return;
-      }
-      io.to(meetingId).emit(
-        "recording-started"
-      );
-    }
-  );
+  
+  socket.on("recording-stopped", (meetingId) => {
+    console.log("Recording stopped:", meetingId);
 
-  socket.on(
-    "recording-stopped",
-    (meetingId) => {
-      if (!meetingId) {
-        return;
-      }
-      io.to(meetingId).emit(
-        "recording-stopped"
-      );
-    }
-  );
+    socket.to(meetingId).emit("recording-stopped");
+  });
 
-  socket.on(
-    "transcript",
-    (data) => {
-      if (
-        !data ||
-        !data.meetingId ||
-        !data.text
-      ) {
-        return;
-      }
+ 
+ socket.on("transcript", (data) => {
+    console.log("TRANSCRIPT RECEIVED BY BACKEND:");
+    console.log(data);
 
-      io.to(data.meetingId).emit(
-        "transcript",
-        data
-      );
-    }
-  );
+    const room = io.sockets.adapter.rooms.get(data.meetingId);
+
+    console.log(
+        "SOCKETS IN ROOM:",
+        room ? [...room] : []
+    );
+
+    socket.to(data.meetingId).emit("transcript", data);
+
+    console.log(
+        "TRANSCRIPT BROADCAST TO ROOM:",
+        data.meetingId
+    );
+});
 
   socket.on("disconnect", () => {
-    for (
-      const meetingId in meetingParticipants
-    ) {
-      meetingParticipants[meetingId] =
-        meetingParticipants[
-          meetingId
-        ].filter(
-          (participant) =>
-            participant.socketId !== socket.id
-        );
-
-      io.to(meetingId).emit(
-        "participants-updated",
-        meetingParticipants[meetingId]
-      );
-
-      if (
-        meetingParticipants[meetingId]
-          .length === 0
-      ) {
-        delete meetingParticipants[
-          meetingId
-        ];
-      }
-    }
+    console.log("Client Disconnected:", socket.id);
   });
 });
 
@@ -156,36 +102,25 @@ app.get("/", (req, res) => {
   res.send("Backend is running successfully");
 });
 
-app.get("/profile",auth,
-  (req, res) => {
-    res.json({
-      message:"This is a protected route", user: req.user,
-    });
-  }
-);
+app.get("/profile", auth, (req, res) => {
+  res.json({
+    message: "This is a protected route",
+    user: req.user,
+  });
+});
 
-app.use( "/api/auth", require("./routes/auth"));
-app.use("/api/speech",speech);
+app.use("/api/auth", require("./routes/auth"));
+app.use("/api/speech", speech);
 
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
-    console.log(
-      "MongoDB connected successfully"
-    );
+    console.log("MongoDB connected successfully");
 
-    server.listen(
-      PORT,
-      () => {
-        console.log(
-          `Server is running on port ${PORT}`
-        );
-      }
-    );
+    server.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
   })
   .catch((err) => {
-    console.error(
-      "MongoDB connection error:",
-      err
-    );
+    console.log(err);
   });
