@@ -75,7 +75,7 @@ socket.on("join-meeting", (data) => {
 
  
  socket.on("transcript", (data) => {
-    console.log("📨 TRANSCRIPT RECEIVED BY BACKEND:");
+    console.log("TRANSCRIPT RECEIVED BY BACKEND:");
     console.log(data);
 
     const room = io.sockets.adapter.rooms.get(data.meetingId);
@@ -85,7 +85,7 @@ socket.on("join-meeting", (data) => {
         room ? [...room] : []
     );
 
-    socket.to(data.meetingId).emit("transcript", data);
+    io.to(data.meetingId).emit("transcript", data);
 
     console.log(
         "TRANSCRIPT BROADCAST TO ROOM:",
