@@ -10,10 +10,6 @@ const app = express();
 
 const PORT = process.env.PORT || 5000;
 
-// =====================================================
-// ROUTES
-// =====================================================
-
 const speech = require("./routes/speech");
 const agora = require("./routes/agora");
 const testRoute = require("./routes/test");
@@ -21,18 +17,10 @@ const llmRoute = require("./routes/llm");
 const meetingRoute = require("./routes/meeting");
 const pdfRoute = require("./routes/pdf");
 
-// =====================================================
-// HTTP + SOCKET.IO
-// =====================================================
-
 const http = require("http");
 const { Server } = require("socket.io");
 
 const server = http.createServer(app);
-
-// =====================================================
-// MIDDLEWARE
-// =====================================================
 
 app.use(express.json());
 
@@ -43,10 +31,6 @@ app.use(
   })
 );
 
-// =====================================================
-// API ROUTES
-// =====================================================
-
 app.use("/api/llm", llmRoute);
 app.use("/api/test", testRoute);
 app.use("/api/agora", agora);
@@ -55,10 +39,6 @@ app.use("/api/pdf", pdfRoute);
 
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/speech", speech);
-
-// =====================================================
-// SOCKET.IO
-// =====================================================
 
 const io = new Server(server, {
   cors: {
@@ -70,25 +50,13 @@ const io = new Server(server, {
 
 app.set("io", io);
 
-// =====================================================
-// PARTICIPANT TRACKING
-// =====================================================
-
 const meetingParticipants = new Map();
-
-// =====================================================
-// SOCKET CONNECTION
-// =====================================================
 
 io.on("connection", (socket) => {
   console.log(
     "Client Connected:",
     socket.id
   );
-
-  // ===================================================
-  // JOIN MEETING
-  // ===================================================
 
   socket.on(
     "join-meeting",
@@ -147,10 +115,6 @@ io.on("connection", (socket) => {
         );
 
         console.log(
-          "=============================="
-        );
-
-        console.log(
           "SOCKET JOINED MEETING"
         );
 
@@ -178,11 +142,6 @@ io.on("connection", (socket) => {
           "Role:",
           role
         );
-
-        console.log(
-          "=============================="
-        );
-
         const participants =
           Array.from(
             roomParticipants.values()
@@ -193,8 +152,6 @@ io.on("connection", (socket) => {
           participants
         );
 
-        // Send updated participant list
-        // to everyone in the meeting
         io.to(meetingId).emit(
           "participants-updated",
           participants
@@ -208,10 +165,6 @@ io.on("connection", (socket) => {
       }
     }
   );
-
-  // ===================================================
-  // RECORDING STARTED
-  // ===================================================
 
   socket.on(
     "recording-started",
@@ -229,10 +182,6 @@ io.on("connection", (socket) => {
     }
   );
 
-  // ===================================================
-  // RECORDING STOPPED
-  // ===================================================
-
   socket.on(
     "recording-stopped",
     (meetingId) => {
@@ -248,10 +197,6 @@ io.on("connection", (socket) => {
         );
     }
   );
-
-  // ===================================================
-  // TRANSCRIPT
-  // ===================================================
 
   socket.on(
     "transcript",
@@ -286,14 +231,7 @@ io.on("connection", (socket) => {
             : []
         );
 
-        /*
-         * Send transcript to everyone
-         * except the sender.
-         *
-         * Sender already updates
-         * its own transcript locally.
-         */
-        socket
+        io
           .to(data.meetingId)
           .emit(
             "transcript",
@@ -313,10 +251,6 @@ io.on("connection", (socket) => {
       }
     }
   );
-
-  // ===================================================
-  // DISCONNECT
-  // ===================================================
 
   socket.on(
     "disconnect",
@@ -342,7 +276,6 @@ io.on("connection", (socket) => {
         return;
       }
 
-      // Remove disconnected user
       roomParticipants.delete(
         socket.id
       );
@@ -357,13 +290,11 @@ io.on("connection", (socket) => {
         participants
       );
 
-      // Tell remaining users
       io.to(meetingId).emit(
         "participants-updated",
         participants
       );
 
-      // Remove empty meeting
       if (
         roomParticipants.size === 0
       ) {
