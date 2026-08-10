@@ -1,5 +1,4 @@
 require("dotenv").config();
-
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -40,152 +39,88 @@ const io = new Server(server, {
 app.set("io", io);
 
 io.on("connection", (socket) => {
+  console.log("Client Connected:", socket.id);
 
-  console.log(
-    "Client Connected:",
-    socket.id
-  );
+socket.on("join-meeting", (data) => {
 
-  socket.on("join-meeting", (data) => {
+    socket.join(data.meetingId);
 
-    const {
-      meetingId,
-      name,
-      role,
-      email,
-    } = data;
+    console.log(" SOCKET JOINED MEETING");
+    console.log("Socket ID:", socket.id);
+    console.log("Meeting ID:", data.meetingId);
+    console.log("Name:", data.name);
+    console.log("Role:", data.role);
 
-    if (!meetingId) {
-      return;
-    }
-
-    socket.join(meetingId);
+    const room = io.sockets.adapter.rooms.get(data.meetingId);
 
     console.log(
-      "Socket joined meeting:",
-      meetingId
+        "SOCKETS CURRENTLY IN ROOM:",
+        room ? [...room] : []
     );
+    
+});
 
-    console.log(
-      "Name:",
-      name
-    );
+  socket.on("recording-started", (meetingId) => {
+    console.log("Recording started:", meetingId);
 
-    console.log(
-      "Role:",
-      role
-    );
-
+    socket.to(meetingId).emit("recording-started");
   });
 
-  socket.on(
-    "recording-started",
-    (meetingId) => {
+  
+  socket.on("recording-stopped", (meetingId) => {
+    console.log("Recording stopped:", meetingId);
 
-      if (!meetingId) {
-        return;
-      }
-      console.log(
-        "Recording started:",
-        meetingId
-      );
-      io.to(meetingId).emit(
-        "recording-started"
-      );
+    socket.to(meetingId).emit("recording-stopped");
+  });
 
-    }
-  );
+ 
+ socket.on("transcript", (data) => {
+    console.log("TRANSCRIPT RECEIVED BY BACKEND:");
+    console.log(data);
 
-  socket.on(
-    "recording-stopped",
-    (meetingId) => {
-      if (!meetingId) {
-        return;
-      }
-      console.log( "Recording stopped:", meetingId);
+    const room = io.sockets.adapter.rooms.get(data.meetingId);
 
-      io.to(meetingId).emit(
-        "recording-stopped"
-      );
-    }
-  );
+    console.log(
+        "SOCKETS IN ROOM:",
+        room ? [...room] : []
+    );
 
-  socket.on(
-    "transcript",
-    (data) => {
+    socket.to(data.meetingId).emit("transcript", data);
 
-      console.log(
-        "Transcript received:",
-        data
-      );
-
-      if (
-        !data ||
-        !data.meetingId ||
-        !data.text
-      ) {
-        return;
-      }
-
-      io.to(data.meetingId).emit(
-        "transcript",
-        data
-      );
-
-    }
-  );
+    console.log(
+        "TRANSCRIPT BROADCAST TO ROOM:",
+        data.meetingId
+    );
+});
 
   socket.on("disconnect", () => {
-    console.log(
-      "Client Disconnected:",
-      socket.id
-    );
+    console.log("Client Disconnected:", socket.id);
   });
 });
 
 app.get("/", (req, res) => {
-  res.send(
-    "Backend is running successfully"
-  );
+  res.send("Backend is running successfully");
 });
 
-app.get("/profile",auth,
-  (req, res) => {
-    res.json({
-      message:
-        "This is a protected route",
-      user: req.user,
-    });
-  }
-);
+app.get("/profile", auth, (req, res) => {
+  res.json({
+    message: "This is a protected route",
+    user: req.user,
+  });
+});
 
-app.use(
-  "/api/auth",
-  require("./routes/auth")
-);
-
+app.use("/api/auth", require("./routes/auth"));
 app.use("/api/speech", speech);
 
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
-    console.log(
-      "MongoDB connected successfully"
-    );
+    console.log("MongoDB connected successfully");
 
-    server.listen(
-      PORT,
-      () => {
-        console.log(
-          `Server is running on port ${PORT}`
-        );
-      }
-    );
+    server.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
   })
-
   .catch((err) => {
-    console.error(
-      "MongoDB connection error:",
-      err
-    );
+    console.log(err);
   });
