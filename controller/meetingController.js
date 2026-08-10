@@ -72,10 +72,18 @@ async function createMeeting(req, res) {
             host.email
         );
 
-        const meetingId = uuidv4();
+       const meetingId = uuidv4();
 
-        const meetingLink =
-            `${process.env.FRONTEND_URL}/meeting/${meetingId}`;
+       const meetingUrl = new URL(
+    `${process.env.FRONTEND_URL}/meeting/${meetingId}`
+     );
+
+meetingUrl.searchParams.set(
+    "hostName",
+    host.name
+);
+
+const meetingLink = meetingUrl.toString();
 
         const meeting = await Meeting.create({
                 meetingId,
