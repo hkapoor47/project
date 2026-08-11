@@ -20,13 +20,14 @@ async function generateAnswer(req, res) {
 
     const answer = await askLLM(transcript);
 
-    res.json({
-      summary:answer,
+    return res.status(200).json({
+      summary: answer,
     });
-  } catch (err) {
-    console.error(err);
 
-    res.status(500).json({
+  } catch (err) {
+    console.error("LLM Error:", err);
+
+    return res.status(500).json({
       error: err.message,
     });
   }
