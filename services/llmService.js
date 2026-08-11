@@ -37,46 +37,32 @@ IMPORTANT INSTRUCTIONS:
 
 Return the result using EXACTLY this structure:
 
-# Minutes of Meeting
 
-## Meeting Overview
 
-**Topic:**  
-**Date:**  
-**Participants:**  
-
-## Key Discussion Points
+Topic:
+ 
+ Key Discussion Points
 
 1. 
 2. 
 3. 
 
-## Decisions Made
+ Decisions Made
 
 - 
 - 
 
-## Action Items
-
-| Task | Responsible Person | Deadline |
-|------|--------------------|----------|
-| | | |
-| | | |
-
-## Issues / Blockers
+ Issues 
 
 - 
 - 
 
-## Next Steps
+ Next Steps
 
 - 
 - 
 
-MEETING TRANSCRIPT:
-
-${transcript}
-`;
+MEETING TRANSCRIPT:${transcript}`;
 
 
   try {
