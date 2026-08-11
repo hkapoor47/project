@@ -99,52 +99,68 @@ async function handleSpeechToTextStart(req, res) {
 async function handleSpeechCallback(req, res) {
     try {
         console.log(
-            "Callback Body:",
             JSON.stringify(req.body, null, 2)
         );
 
         const io = req.app.get("io");
         const body = req.body || {};
-        const words = body.words || [];
-        const text = words
-            .filter(word => word.is_final)
-            .map(word => word.text)
-            .join(" ");
 
-        const uid = Number(
-             body.uid || 
-             body.rtcUid ||
-             body.rtcuid
-            );
-
-        const channel = body.channelName;
-        console.log({
-            channel,
-            uid,
-            text
-        });
+        const channel =
+            body.channelName ||
+            body.channel ||
+            body.rtcChannelName;
 
         if (!channel) {
-            console.log("Channel missing.");
+            console.log("Channel missing");
             return res.sendStatus(200);
         }
 
-        if (!uid) {
-            console.log("UID missing.");
+        const rawUid =
+            body.uid ??
+            body.rtcUid ??
+            body.rtcuid;
+
+        const uid = Number(rawUid);
+
+        console.log("Detected UID:", uid);
+
+        if (!Number.isFinite(uid)) {
+            console.log(
+                "Could not determine speaker UID"
+            );
             return res.sendStatus(200);
         }
+
+        const words = Array.isArray(body.words)
+            ? body.words
+            : [];
+
+        const finalWords = words.filter(
+            word =>
+                word.is_final === true ||
+                word.isFinal === true
+        );
+
+        const text = finalWords
+            .map(word => word.text)
+            .filter(Boolean)
+            .join(" ")
+            .trim();
 
         if (!text) {
-            console.log("No final transcript received.");
+            console.log(
+                "No final transcript received"
+            );
+
             return res.sendStatus(200);
         }
 
-        const meeting = await Meeting.findOne({
-            meetingId: channel
-        });
+        const meeting =
+            await Meeting.findOne({
+                meetingId: channel
+            });
 
         if (!meeting) {
-
             console.log(
                 "Meeting not found:",
                 channel
@@ -152,16 +168,28 @@ async function handleSpeechCallback(req, res) {
             return res.sendStatus(200);
         }
 
-        const member = meeting.members.find(
-            member => member.uid === uid
-        );
+        const member =
+            meeting.members.find(
+                member =>
+                    Number(member.uid) === uid
+            );
 
         let speaker = "Unknown";
+
         if (uid === 1) {
             speaker = "Host";
         } else if (member) {
             speaker = member.name;
         }
+
+        console.log(
+            "Speaker Mapping:",
+            {
+                uid,
+                speaker,
+                memberFound: !!member
+            }
+        );
 
         meeting.transcript.push({
             uid,
@@ -183,17 +211,14 @@ async function handleSpeechCallback(req, res) {
                 text
             }
         );
-
         console.log(
             "Transcript emitted to clients."
         );
-
         return res.sendStatus(200);
-
     } catch (error) {
-        console.log(error);
-        console.log(
-            error.response?.data
+        console.error(
+            "Speech callback error:",
+            error
         );
         return res.sendStatus(500);
     }
