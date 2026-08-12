@@ -11,20 +11,12 @@ const auth = require("./middleware/authMiddleware");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// =====================================================
-// ROUTES
-// =====================================================
-
 const speech = require("./routes/speech");
 const agora = require("./routes/agora");
 const testRoute = require("./routes/test");
 const llmRoute = require("./routes/llm");
 const meetingRoute = require("./routes/meeting");
 const pdfRoute = require("./routes/pdf");
-
-// =====================================================
-// MIDDLEWARE
-// =====================================================
 
 app.use(express.json());
 
@@ -35,10 +27,6 @@ app.use(
   })
 );
 
-// =====================================================
-// API ROUTES
-// =====================================================
-
 app.use("/api/llm", llmRoute);
 app.use("/api/test", testRoute);
 app.use("/api/agora", agora);
@@ -47,15 +35,7 @@ app.use("/api/pdf", pdfRoute);
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/speech", speech);
 
-// =====================================================
-// HTTP SERVER
-// =====================================================
-
 const server = http.createServer(app);
-
-// =====================================================
-// SOCKET.IO
-// =====================================================
 
 const io = new Server(server, {
   cors: {
@@ -67,37 +47,24 @@ const io = new Server(server, {
 
 app.set("io", io);
 
-// =====================================================
-// MEETING PARTICIPANTS
-//
-// meetingParticipants:
-// Map<meetingId, Map<socketId, participant>>
-//
-// participant:
-// {
-//   socketId,
-//   name,
-//   email,
-//   role,
-//   uid
-// }
-// =====================================================
+/*
+=====================================================
+MEETING PARTICIPANTS
+
+meetingId -> Map(socketId -> participant)
+=====================================================
+*/
 
 const meetingParticipants = new Map();
 
-// =====================================================
-// SOCKET CONNECTION
-// =====================================================
-
 io.on("connection", (socket) => {
-  console.log(
-    "Client Connected:",
-    socket.id
-  );
+  console.log("Client Connected:", socket.id);
 
-  // ===================================================
-  // JOIN MEETING SOCKET ROOM
-  // ===================================================
+  /*
+  =====================================================
+  JOIN MEETING SOCKET ROOM
+  =====================================================
+  */
 
   socket.on("join-meeting", (data) => {
     try {
@@ -110,19 +77,14 @@ io.on("connection", (socket) => {
       } = data || {};
 
       if (!meetingId) {
-        console.log(
-          "Meeting ID missing"
-        );
+        console.log("Meeting ID missing");
         return;
       }
 
-      // Join Socket.IO room
       socket.join(meetingId);
 
-      // Store meeting ID on socket
       socket.meetingId = meetingId;
 
-      // Create meeting map if required
       if (!meetingParticipants.has(meetingId)) {
         meetingParticipants.set(
           meetingId,
@@ -131,25 +93,16 @@ io.on("connection", (socket) => {
       }
 
       const roomParticipants =
-        meetingParticipants.get(
-          meetingId
-        );
+        meetingParticipants.get(meetingId);
 
-      // Create participant
       const participant = {
         socketId: socket.id,
 
-        name:
-          name ||
-          "Unknown",
+        name: name || "Unknown",
 
-        email:
-          email ||
-          "",
+        email: email || "",
 
-        role:
-          role ||
-          "participant",
+        role: role || "participant",
 
         uid:
           uid !== undefined &&
@@ -158,7 +111,6 @@ io.on("connection", (socket) => {
             : null,
       };
 
-      // Save participant
       roomParticipants.set(
         socket.id,
         participant
@@ -169,7 +121,6 @@ io.on("connection", (socket) => {
         participant
       );
 
-      // Send updated participant list
       const participants =
         Array.from(
           roomParticipants.values()
@@ -179,7 +130,6 @@ io.on("connection", (socket) => {
         "participants-updated",
         participants
       );
-
     } catch (error) {
       console.error(
         "join-meeting error:",
@@ -188,22 +138,11 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ===================================================
-  // UPDATE PARTICIPANT AGORA UID
-  //
-  // This is VERY IMPORTANT.
-  //
-  // Frontend gets Agora UID after /join API and sends:
-  //
-  // socket.emit("participant-uid", {
-  //   meetingId,
-  //   uid,
-  //   name,
-  //   email,
-  //   role
-  // });
-  //
-  // ===================================================
+  /*
+  =====================================================
+  UPDATE AGORA UID
+  =====================================================
+  */
 
   socket.on(
     "participant-uid",
@@ -223,10 +162,9 @@ io.on("connection", (socket) => {
           uid === null
         ) {
           console.log(
-            "Invalid participant UID data:",
+            "Invalid participant UID:",
             data
           );
-
           return;
         }
 
@@ -240,7 +178,6 @@ io.on("connection", (socket) => {
             "Meeting room not found:",
             meetingId
           );
-
           return;
         }
 
@@ -254,20 +191,11 @@ io.on("connection", (socket) => {
             "Participant not found:",
             socket.id
           );
-
           return;
         }
 
-        // ---------------------------------------------
-        // SAVE AGORA UID
-        // ---------------------------------------------
-
         participant.uid =
           Number(uid);
-
-        // ---------------------------------------------
-        // UPDATE IDENTITY
-        // ---------------------------------------------
 
         if (name) {
           participant.name = name;
@@ -287,13 +215,9 @@ io.on("connection", (socket) => {
         );
 
         console.log(
-          "Participant UID mapped:",
+          "Agora UID mapped:",
           participant
         );
-
-        // ---------------------------------------------
-        // SEND UPDATED PARTICIPANTS
-        // ---------------------------------------------
 
         const participants =
           Array.from(
@@ -304,7 +228,6 @@ io.on("connection", (socket) => {
           "participants-updated",
           participants
         );
-
       } catch (error) {
         console.error(
           "participant-uid error:",
@@ -314,9 +237,11 @@ io.on("connection", (socket) => {
     }
   );
 
-  // ===================================================
-  // RECORDING STARTED
-  // ===================================================
+  /*
+  =====================================================
+  RECORDING STARTED
+  =====================================================
+  */
 
   socket.on(
     "recording-started",
@@ -338,9 +263,11 @@ io.on("connection", (socket) => {
     }
   );
 
-  // ===================================================
-  // RECORDING STOPPED
-  // ===================================================
+  /*
+  =====================================================
+  RECORDING STOPPED
+  =====================================================
+  */
 
   socket.on(
     "recording-stopped",
@@ -362,9 +289,11 @@ io.on("connection", (socket) => {
     }
   );
 
-  // ===================================================
-  // END MEETING
-  // ===================================================
+  /*
+  =====================================================
+  END MEETING
+  =====================================================
+  */
 
   socket.on(
     "end-meeting",
@@ -386,24 +315,32 @@ io.on("connection", (socket) => {
     }
   );
 
-  // ===================================================
-  // TRANSCRIPT
-  //
-  // This receives transcript data from backend/client.
-  //
-  // Expected:
-  //
-  // {
-  //   meetingId,
-  //   uid,
-  //   text
-  // }
-  //
-  // Then:
-  //
-  // Agora UID -> participant name
-  //
-  // ===================================================
+  /*
+  =====================================================
+  TRANSCRIPT
+
+  Host sends:
+
+  {
+    meetingId,
+    uid,
+    text
+  }
+
+  Server finds:
+
+  uid -> participant.name
+
+  Then broadcasts:
+
+  {
+    meetingId,
+    uid,
+    speaker,
+    text
+  }
+  =====================================================
+  */
 
   socket.on(
     "transcript",
@@ -418,7 +355,6 @@ io.on("connection", (socket) => {
             "Invalid transcript data:",
             data
           );
-
           return;
         }
 
@@ -430,10 +366,6 @@ io.on("connection", (socket) => {
             meetingId
           );
 
-        // ---------------------------------------------
-        // GET UID
-        // ---------------------------------------------
-
         let uid = null;
 
         if (
@@ -443,17 +375,13 @@ io.on("connection", (socket) => {
           uid = Number(data.uid);
         }
 
-        // ---------------------------------------------
-        // DEFAULT SPEAKER
-        // ---------------------------------------------
-
         let speaker =
           data.speaker ||
           "Unknown";
 
-        // ---------------------------------------------
-        // MAP UID -> NAME
-        // ---------------------------------------------
+        /*
+        Find participant by Agora UID
+        */
 
         if (
           roomParticipants &&
@@ -468,15 +396,10 @@ io.on("connection", (socket) => {
             ) {
               speaker =
                 participant.name;
-
               break;
             }
           }
         }
-
-        // ---------------------------------------------
-        // FINAL TRANSCRIPT OBJECT
-        // ---------------------------------------------
 
         const transcriptData = {
           meetingId,
@@ -486,19 +409,18 @@ io.on("connection", (socket) => {
         };
 
         console.log(
-          "Transcript socket:",
+          "FINAL TRANSCRIPT:",
           transcriptData
         );
 
-        // ---------------------------------------------
-        // SEND TO EVERYONE IN MEETING
-        // ---------------------------------------------
+        /*
+        Send transcript to everyone
+        */
 
         io.to(meetingId).emit(
           "transcript",
           transcriptData
         );
-
       } catch (error) {
         console.error(
           "Transcript socket error:",
@@ -508,9 +430,11 @@ io.on("connection", (socket) => {
     }
   );
 
-  // ===================================================
-  // DISCONNECT
-  // ===================================================
+  /*
+  =====================================================
+  DISCONNECT
+  =====================================================
+  */
 
   socket.on(
     "disconnect",
@@ -536,12 +460,10 @@ io.on("connection", (socket) => {
         return;
       }
 
-      // Remove participant
       roomParticipants.delete(
         socket.id
       );
 
-      // Updated participant list
       const participants =
         Array.from(
           roomParticipants.values()
@@ -552,7 +474,6 @@ io.on("connection", (socket) => {
         participants
       );
 
-      // Delete empty room
       if (
         roomParticipants.size === 0
       ) {
@@ -564,9 +485,11 @@ io.on("connection", (socket) => {
   );
 });
 
-// =====================================================
-// BASIC ROUTES
-// =====================================================
+/*
+=====================================================
+HEALTH CHECK
+=====================================================
+*/
 
 app.get(
   "/",
@@ -584,16 +507,16 @@ app.get(
     res.json({
       message:
         "This is a protected route",
-
-      user:
-        req.user,
+      user: req.user,
     });
   }
 );
 
-// =====================================================
-// MONGODB + SERVER
-// =====================================================
+/*
+=====================================================
+DATABASE
+=====================================================
+*/
 
 mongoose
   .connect(
@@ -613,11 +536,9 @@ mongoose
       }
     );
   })
-  .catch(
-    (err) => {
-      console.error(
-        "MongoDB connection error:",
-        err
-      );
-    }
-  );
+  .catch((err) => {
+    console.error(
+      "MongoDB connection error:",
+      err
+    );
+  });
