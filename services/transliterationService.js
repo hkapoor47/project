@@ -6,19 +6,22 @@ const ai = new GoogleGenAI({
 
 async function transliterateHindi(text) {
     try {
+
         const prompt = `
 You are a Hindi-to-Roman-Hindi transliterator.
 
 Convert Hindi written in Devanagari into natural Roman Hindi.
 
-IMPORTANT:
+IMPORTANT RULES:
 - Do NOT translate Hindi into English.
 - Convert Hindi sounds/words into English alphabet.
 - Keep existing English words unchanged.
 - Keep technical terms unchanged.
 - Preserve the meaning and sentence structure.
 - Return ONLY the transliterated text.
-- Do not add explanations.
+- Do NOT return Devanagari/Hindi script.
+- Do NOT add explanations.
+- Do NOT add quotes.
 
 Examples:
 
@@ -44,20 +47,42 @@ Text:
 ${text}
 `;
 
-        const response = await ai.models.generateContent({
-            model: "gemini-3.5-flash",
-            contents: prompt
-        });
+        const response =
+            await ai.models.generateContent({
+                model: "gemini-3.5-flash",
+                contents: prompt
+            });
 
-        return response.text.trim();
+        let result =
+            response.text
+                ? response.text.trim()
+                : "";
+
+        // Safety check:
+        // If Gemini still returns Devanagari,
+        // reject it instead of displaying Hindi.
+        if (/[\u0900-\u097F]/.test(result)) {
+
+            console.error(
+                "Gemini returned Devanagari. Rejecting transcript:",
+                result
+            );
+
+            return "";
+        }
+
+        return result;
 
     } catch (error) {
+
         console.error(
             "Hindi transliteration failed:",
             error.message
         );
 
-        return text;
+        // IMPORTANT:
+        // Do not return original Hindi text.
+        return "";
     }
 }
 
