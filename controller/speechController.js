@@ -181,7 +181,6 @@ async function handleSpeechToTextStart(req, res) {
 // =====================================================
 
 async function handleSpeechCallback(req, res) {
-
     try {
 
         console.log(
@@ -192,10 +191,9 @@ async function handleSpeechCallback(req, res) {
         const io = req.app.get("io");
 
         console.log(
-            "Agora Callback:",
+            "STT BODY:",
             JSON.stringify(body, null, 2)
         );
-
 
         // =====================================================
         // CHANNEL
@@ -211,7 +209,6 @@ async function handleSpeechCallback(req, res) {
             return res.sendStatus(200);
         }
 
-
         // =====================================================
         // UID
         // =====================================================
@@ -223,20 +220,12 @@ async function handleSpeechCallback(req, res) {
 
         const uid = Number(rawUid);
 
-        if (!Number.isFinite(uid)) {
-            console.log(
-                "Invalid UID:",
-                rawUid
-            );
+        console.log("Detected UID:", uid);
 
+        if (!Number.isFinite(uid)) {
+            console.log("Invalid UID");
             return res.sendStatus(200);
         }
-
-        console.log(
-            "Detected UID:",
-            uid
-        );
-
 
         // =====================================================
         // WORDS
@@ -247,247 +236,109 @@ async function handleSpeechCallback(req, res) {
                 ? body.words
                 : [];
 
-        if (!words.length) {
-            console.log(
-                "No words received"
-            );
-
-            return res.sendStatus(200);
-        }
-
-
-        // =====================================================
-        // ONLY FINAL WORDS
-        // =====================================================
-
         const finalWords =
-            words.filter(word => {
-
-                if (!word) {
-                    return false;
-                }
-
-                return (
-                    word.is_final === true ||
-                    word.isFinal === true
-                );
-            });
-
-
-        if (!finalWords.length) {
-
-            console.log(
-                "No final words received"
+            words.filter(
+                word =>
+                    word &&
+                    (
+                        word.is_final === true ||
+                        word.isFinal === true
+                    )
             );
-
-            return res.sendStatus(200);
-        }
-
-
-        // =====================================================
-        // CREATE TRANSCRIPT TEXT
-        // =====================================================
 
         let text =
             finalWords
                 .map(word => word.text)
-                .filter(
-                    value =>
-                        typeof value === "string" &&
-                        value.trim()
-                )
+                .filter(Boolean)
                 .join(" ")
                 .replace(/\s+/g, " ")
                 .trim();
 
-
         if (!text) {
-
-            console.log(
-                "Empty transcript"
-            );
-
             return res.sendStatus(200);
         }
 
-
-        console.log(
-            "Raw transcript:",
-            text
-        );
-
-
-        // =====================================================
-        // HINDI DETECTION
-        // =====================================================
-
-        const containsHindi =
-            /[\u0900-\u097F]/.test(text);
-
+        console.log("RAW TEXT:", text);
 
         // =====================================================
         // HINDI -> ROMAN HINDI
         // =====================================================
 
-        if (containsHindi) {
+        if (/[\u0900-\u097F]/.test(text)) {
 
             console.log(
-                "Hindi detected"
+                "Hindi detected. Transliteration..."
             );
 
-            console.log(
-                "Before transliteration:",
-                text
-            );
+            const transliterated =
+                await transliterateHindi(text);
 
-            try {
+            text =
+                String(transliterated || "")
+                    .replace(/\s+/g, " ")
+                    .trim();
 
-                const transliteratedText =
-                    await transliterateHindi(text);
-
-
-                text =
-                    String(
-                        transliteratedText || ""
-                    )
-                        .replace(/\s+/g, " ")
-                        .trim();
-
-
-                console.log(
-                    "After transliteration:",
-                    text
-                );
-
-            } catch (error) {
-
-                console.error(
-                    "Transliteration error:",
-                    error.message
-                );
-
-                // Never send original Hindi
-                return res.sendStatus(200);
-            }
-
-
-            // =================================================
-            // REJECT IF HINDI STILL EXISTS
-            // =================================================
-
+            // Never allow Devanagari
             if (
+                !text ||
                 /[\u0900-\u097F]/.test(text)
             ) {
-
                 console.log(
-                    "Hindi still exists after transliteration."
+                    "Hindi transcript rejected"
                 );
 
                 return res.sendStatus(200);
             }
         }
 
-
         // =====================================================
-        // EMPTY AFTER TRANSLITERATION
-        // =====================================================
-
-        if (!text) {
-
-            console.log(
-                "Transcript empty after transliteration"
-            );
-
-            return res.sendStatus(200);
-        }
-
-
-        // =====================================================
-        // FINAL HINDI SAFETY CHECK
+        // FINAL SAFETY
         // =====================================================
 
         if (
+            !text ||
             /[\u0900-\u097F]/.test(text)
         ) {
-
-            console.log(
-                "BLOCKED Hindi transcript:",
-                text
-            );
-
             return res.sendStatus(200);
         }
 
-
-        // =====================================================
-        // NORMALIZE TEXT FOR DUPLICATE CHECK
-        // =====================================================
-
-        const normalizedText =
+        console.log(
+            "FINAL TEXT:",
             text
-                .toLowerCase()
-                .replace(
-                    /[.,!?;:"'`।]/g,
-                    ""
-                )
-                .replace(
-                    /\s+/g,
-                    " "
-                )
-                .trim();
-
-
-        if (!normalizedText) {
-            return res.sendStatus(200);
-        }
-
-
-        // =====================================================
-        // DUPLICATE KEY
-        // =====================================================
-
-        const duplicateKey =
-            `${channel}:${uid}:${normalizedText}`;
-
+        );
 
         // =====================================================
         // DUPLICATE CHECK
         // =====================================================
 
-        if (
-            transcriptCache.has(
-                duplicateKey
-            )
-        ) {
+        const normalizedText =
+            text
+                .toLowerCase()
+                .replace(/[.,!?;:"'`]/g, "")
+                .replace(/\s+/g, " ")
+                .trim();
+
+        const duplicateKey =
+            `${channel}:${uid}:${normalizedText}`;
+
+        if (transcriptCache.has(duplicateKey)) {
 
             console.log(
-                "Duplicate transcript ignored:",
+                "Duplicate ignored:",
                 text
             );
 
             return res.sendStatus(200);
         }
-
-
-        // =====================================================
-        // SAVE DUPLICATE KEY
-        // =====================================================
 
         transcriptCache.set(
             duplicateKey,
             Date.now()
         );
 
-
-        // Remove after 10 seconds
         setTimeout(() => {
-
-            transcriptCache.delete(
-                duplicateKey
-            );
-
+            transcriptCache.delete(duplicateKey);
         }, 10000);
-
 
         // =====================================================
         // FIND MEETING
@@ -499,7 +350,6 @@ async function handleSpeechCallback(req, res) {
             });
 
         if (!meeting) {
-
             console.log(
                 "Meeting not found:",
                 channel
@@ -508,23 +358,28 @@ async function handleSpeechCallback(req, res) {
             return res.sendStatus(200);
         }
 
-
         // =====================================================
         // FIND PARTICIPANT
         // =====================================================
+        // KEEPING YOUR ORIGINAL MEMBER MAPPING
+        // =====================================================
 
         const member =
-            Array.isArray(
-                meeting.members
-            )
+            Array.isArray(meeting.members)
                 ? meeting.members.find(
                     member =>
-                        Number(
-                            member.uid
-                        ) === uid
+                        Number(member.uid) === uid
                 )
                 : null;
 
+        console.log(
+            "MEMBER LOOKUP:",
+            {
+                uid,
+                memberFound: !!member,
+                member
+            }
+        );
 
         // =====================================================
         // SPEAKER
@@ -532,100 +387,64 @@ async function handleSpeechCallback(req, res) {
 
         let speaker = "Unknown";
 
-
-        if (
-            meeting.hostId &&
-            meeting.hostId.toString() ===
-                uid.toString()
-        ) {
+        // Host uses Agora UID 1
+        if (uid === 1) {
 
             speaker =
                 meeting.hostName ||
                 "Host";
-
-        } else if (
-            uid === 1
-        ) {
-
-            speaker = "Host";
-
-        } else if (
-            member
-        ) {
-
-            speaker =
-                member.name;
         }
 
+        // Participant
+        else if (member) {
+
+            speaker =
+                member.name ||
+                member.email ||
+                "Participant";
+        }
 
         console.log(
-            "Speaker mapping:",
+            "SPEAKER:",
             {
                 uid,
-                speaker,
-                text
+                speaker
             }
         );
 
-
         // =====================================================
-        // SAVE TRANSCRIPT
+        // SAVE
         // =====================================================
 
         meeting.transcript.push({
-
             uid,
-
             speaker,
-
             text
         });
 
-
         await meeting.save();
-
-
-        console.log(
-            `Transcript Saved -> ${speaker}: ${text}`
-        );
-
 
         // =====================================================
         // SEND TO FRONTEND
         // =====================================================
 
         const transcriptData = {
-
-            meetingId:
-                channel,
-
-            uid,
-
+            meetingId: channel,
             speaker,
-
             text
         };
 
+        console.log(
+            "EMITTING:",
+            transcriptData
+        );
 
         io.to(channel).emit(
             "transcript",
             transcriptData
         );
 
-
-        console.log(
-            "Transcript emitted:",
-            transcriptData
-        );
-
-
-        console.log(
-            "================================================"
-        );
-
-
         return res.sendStatus(200);
-
 
     } catch (error) {
 
