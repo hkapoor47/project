@@ -9,14 +9,9 @@ const {
 
 const Meeting = require("../models/meeting");
 
+
 // =====================================================
 // DUPLICATE TRANSCRIPT CACHE
-// =====================================================
-// Key format:
-// channel + uid + normalized text
-//
-// This prevents Agora from sending the exact same
-// final transcript multiple times.
 // =====================================================
 
 const transcriptCache = new Map();
@@ -48,6 +43,11 @@ async function handleSpeechToTextStart(req, res) {
             });
         }
 
+
+        // =================================================
+        // FIND MEETING
+        // =================================================
+
         const meeting =
             await Meeting.findOne({
                 meetingId: channel
@@ -59,6 +59,11 @@ async function handleSpeechToTextStart(req, res) {
             });
         }
 
+
+        // =================================================
+        // AUTHENTICATED USER
+        // =================================================
+
         const userId =
             req.user.id ||
             req.user._id ||
@@ -66,6 +71,7 @@ async function handleSpeechToTextStart(req, res) {
 
         if (
             !userId ||
+            !meeting.hostId ||
             meeting.hostId.toString() !==
                 userId.toString()
         ) {
@@ -75,12 +81,22 @@ async function handleSpeechToTextStart(req, res) {
             });
         }
 
+
+        // =================================================
+        // CHECK IF ALREADY RECORDING
+        // =================================================
+
         if (meeting.isRecording) {
             return res.status(400).json({
                 message:
                     "STT already running"
             });
         }
+
+
+        // =================================================
+        // START AGORA STT
+        // =================================================
 
         console.log(
             "Starting Agora Speech To Text..."
@@ -96,17 +112,29 @@ async function handleSpeechToTextStart(req, res) {
             result
         );
 
+
+        // =================================================
+        // SAVE STT INFORMATION
+        // =================================================
+
         meeting.agentId =
             result.agent_id;
 
-        meeting.isRecording = true;
+        meeting.isRecording =
+            true;
 
-        meeting.status = "active";
+        meeting.status =
+            "active";
 
         meeting.startedAt =
             new Date();
 
         await meeting.save();
+
+
+        // =================================================
+        // NOTIFY PARTICIPANTS
+        // =================================================
 
         const io =
             req.app.get("io");
@@ -115,13 +143,16 @@ async function handleSpeechToTextStart(req, res) {
             "recording-started"
         );
 
+
         return res.status(200).json({
+
             message:
                 "Speech To Text started successfully",
 
             agent_id:
                 result.agent_id
         });
+
 
     } catch (error) {
 
@@ -132,6 +163,7 @@ async function handleSpeechToTextStart(req, res) {
         );
 
         return res.status(500).json({
+
             message:
                 "Failed to start STT",
 
@@ -141,6 +173,7 @@ async function handleSpeechToTextStart(req, res) {
         });
     }
 }
+
 
 
 // =====================================================
@@ -155,7 +188,7 @@ async function handleSpeechCallback(
     try {
 
         console.log(
-            "================ STT CALLBACK ================"
+            "\n================ STT CALLBACK ================"
         );
 
         console.log(
@@ -166,6 +199,7 @@ async function handleSpeechCallback(
             )
         );
 
+
         const io =
             req.app.get("io");
 
@@ -173,9 +207,9 @@ async function handleSpeechCallback(
             req.body || {};
 
 
-        // =====================================================
+        // =================================================
         // CHANNEL
-        // =====================================================
+        // =================================================
 
         const channel =
             body.channelName ||
@@ -192,9 +226,9 @@ async function handleSpeechCallback(
         }
 
 
-        // =====================================================
+        // =================================================
         // UID
-        // =====================================================
+        // =================================================
 
         const rawUid =
             body.uid ??
@@ -219,9 +253,9 @@ async function handleSpeechCallback(
         }
 
 
-        // =====================================================
+        // =================================================
         // WORDS
-        // =====================================================
+        // =================================================
 
         const words =
             Array.isArray(body.words)
@@ -234,9 +268,9 @@ async function handleSpeechCallback(
         );
 
 
-        // =====================================================
+        // =================================================
         // ONLY FINAL WORDS
-        // =====================================================
+        // =================================================
 
         const finalWords =
             words.filter(
@@ -249,9 +283,9 @@ async function handleSpeechCallback(
             );
 
 
-        // =====================================================
+        // =================================================
         // CREATE TEXT
-        // =====================================================
+        // =================================================
 
         let text =
             finalWords
@@ -274,15 +308,16 @@ async function handleSpeechCallback(
             return res.sendStatus(200);
         }
 
+
         console.log(
             "Raw final transcript:",
             text
         );
 
 
-        // =====================================================
-        // LANGUAGE DETECTION
-        // =====================================================
+        // =================================================
+        // LANGUAGE
+        // =================================================
 
         const detectedLanguage =
             body.language ||
@@ -295,17 +330,17 @@ async function handleSpeechCallback(
         );
 
 
-        // =====================================================
+        // =================================================
         // HINDI DETECTION
-        // =====================================================
+        // =================================================
 
         const containsHindi =
             /[\u0900-\u097F]/.test(text);
 
 
-        // =====================================================
+        // =================================================
         // HINDI -> ROMAN HINDI
-        // =====================================================
+        // =================================================
 
         if (
             detectedLanguage === "hi-IN" ||
@@ -339,25 +374,20 @@ async function handleSpeechCallback(
                     text
                 );
 
-            } catch (
-                transliterationError
-            ) {
+            } catch (error) {
 
                 console.error(
                     "Transliteration failed:",
-                    transliterationError
+                    error
                 );
 
-                // Do NOT save or emit Hindi
+                // Hindi should NEVER reach frontend
                 return res.sendStatus(200);
             }
 
 
             // =================================================
-            // SAFETY CHECK
-            // =================================================
-            // If Gemini somehow returns Devanagari,
-            // reject it completely.
+            // NEVER ALLOW DEVANAGARI
             // =================================================
 
             if (
@@ -365,7 +395,7 @@ async function handleSpeechCallback(
             ) {
 
                 console.log(
-                    "Devanagari still present after transliteration."
+                    "Devanagari still present."
                 );
 
                 console.log(
@@ -378,9 +408,9 @@ async function handleSpeechCallback(
         }
 
 
-        // =====================================================
-        // EMPTY TEXT CHECK AFTER TRANSLITERATION
-        // =====================================================
+        // =================================================
+        // EMPTY CHECK
+        // =================================================
 
         if (!text) {
 
@@ -392,24 +422,9 @@ async function handleSpeechCallback(
         }
 
 
-        // =====================================================
+        // =================================================
         // DUPLICATE PROTECTION
-        // =====================================================
-        //
-        // IMPORTANT:
-        // Duplicate checking happens AFTER transliteration.
-        //
-        // This means:
-        //
-        // Hindi -> Roman Hindi -> normalize -> duplicate check
-        //
-        // Example:
-        //
-        // Aaj hum meeting karenge
-        // Aaj hum meeting karenge
-        //
-        // Only one will be accepted.
-        // =====================================================
+        // =================================================
 
         const normalizedText =
             String(text)
@@ -436,7 +451,7 @@ async function handleSpeechCallback(
         ) {
 
             console.log(
-                "Duplicate transcript ignored:",
+                "DUPLICATE IGNORED:",
                 text
             );
 
@@ -444,39 +459,27 @@ async function handleSpeechCallback(
         }
 
 
-        // =====================================================
-        // STORE DUPLICATE KEY
-        // =====================================================
-
+        // Save duplicate key
         transcriptCache.set(
             duplicateKey,
             Date.now()
         );
 
 
-        // =====================================================
-        // REMOVE CACHE AFTER 10 SECONDS
-        // =====================================================
-        //
-        // This allows the same sentence to legitimately
-        // be spoken again after some time.
-        // =====================================================
-
+        // Remove after 10 seconds
         setTimeout(
             () => {
-
                 transcriptCache.delete(
                     duplicateKey
                 );
-
             },
             10000
         );
 
 
-        // =====================================================
+        // =================================================
         // FIND MEETING
-        // =====================================================
+        // =================================================
 
         const meeting =
             await Meeting.findOne({
@@ -494,14 +497,12 @@ async function handleSpeechCallback(
         }
 
 
-        // =====================================================
+        // =================================================
         // FIND PARTICIPANT
-        // =====================================================
+        // =================================================
 
         const member =
-            Array.isArray(
-                meeting.members
-            )
+            Array.isArray(meeting.members)
                 ? meeting.members.find(
                     (member) =>
                         Number(
@@ -511,15 +512,15 @@ async function handleSpeechCallback(
                 : null;
 
 
-        // =====================================================
-        // SPEAKER MAPPING
-        // =====================================================
+        // =================================================
+        // SPEAKER
+        // =================================================
 
         let speaker =
             "Unknown";
 
 
-        // Host mapping
+        // Host
         if (
             meeting.hostId &&
             meeting.hostId.toString() ===
@@ -532,7 +533,7 @@ async function handleSpeechCallback(
         }
 
 
-        // Existing host UID fallback
+        // Host UID fallback
         else if (
             uid === 1
         ) {
@@ -542,7 +543,7 @@ async function handleSpeechCallback(
         }
 
 
-        // Participant mapping
+        // Participant
         else if (member) {
 
             speaker =
@@ -562,13 +563,16 @@ async function handleSpeechCallback(
         );
 
 
-        // =====================================================
-        // SAVE TRANSCRIPT TO MONGODB
-        // =====================================================
+        // =================================================
+        // SAVE TO DATABASE
+        // =================================================
 
         meeting.transcript.push({
+
             uid,
+
             speaker,
+
             text
         });
 
@@ -580,9 +584,9 @@ async function handleSpeechCallback(
         );
 
 
-        // =====================================================
-        // SEND TRANSCRIPT TO FRONTEND
-        // =====================================================
+        // =================================================
+        // SEND TO FRONTEND
+        // =================================================
 
         const transcriptData = {
 
@@ -613,9 +617,8 @@ async function handleSpeechCallback(
             "Transcript emitted successfully."
         );
 
-
         console.log(
-            "================================================"
+            "================================================\n"
         );
 
 
@@ -632,6 +635,7 @@ async function handleSpeechCallback(
         return res.sendStatus(500);
     }
 }
+
 
 
 // =====================================================
@@ -657,6 +661,10 @@ async function handleSpeechToTextStop(
         }
 
 
+        // =================================================
+        // FIND MEETING
+        // =================================================
+
         const meeting =
             await Meeting.findOne({
                 meetingId:
@@ -672,9 +680,9 @@ async function handleSpeechToTextStop(
         }
 
 
-        // =====================================================
+        // =================================================
         // AUTHENTICATED USER
-        // =====================================================
+        // =================================================
 
         const userId =
             req.user.id ||
@@ -682,12 +690,13 @@ async function handleSpeechToTextStop(
             req.user.userId;
 
 
-        // =====================================================
-        // ONLY HOST CAN STOP
-        // =====================================================
+        // =================================================
+        // ONLY HOST
+        // =================================================
 
         if (
             !userId ||
+            !meeting.hostId ||
             meeting.hostId.toString() !==
                 userId.toString()
         ) {
@@ -699,9 +708,9 @@ async function handleSpeechToTextStop(
         }
 
 
-        // =====================================================
+        // =================================================
         // CHECK STT
-        // =====================================================
+        // =================================================
 
         if (!meeting.agentId) {
 
@@ -718,9 +727,9 @@ async function handleSpeechToTextStop(
         );
 
 
-        // =====================================================
+        // =================================================
         // STOP AGORA STT
-        // =====================================================
+        // =================================================
 
         const result =
             await stopSpeechToText(
@@ -728,9 +737,9 @@ async function handleSpeechToTextStop(
             );
 
 
-        // =====================================================
+        // =================================================
         // UPDATE MEETING
-        // =====================================================
+        // =================================================
 
         meeting.isRecording =
             false;
@@ -744,9 +753,9 @@ async function handleSpeechToTextStop(
         await meeting.save();
 
 
-        // =====================================================
+        // =================================================
         // NOTIFY FRONTEND
-        // =====================================================
+        // =================================================
 
         const io =
             req.app.get("io");
@@ -772,7 +781,6 @@ async function handleSpeechToTextStop(
             error.response?.data ||
             error.message
         );
-
 
         return res.status(500).json({
 
