@@ -1,7 +1,7 @@
 const bcrypt = require('bcrypt');
 const User = require('../models/user');
 const jwt = require("jsonwebtoken");
-
+const { sendPasswordResetOtp } = require("../services/emailService");
 
 async function handleRegister(req, res) {
  try{
@@ -149,8 +149,176 @@ async function handleGetProfile(req, res) {
         });
     }
 };
+async function handleForgotPassword(req, res) {
+    try {
+        const { email } = req.body;
 
+        if (!email) {
+            return res.status(400).json({
+                message: "Email is required"
+            });
+        }
 
+        const user = await User.findOne({ email });
 
+        if (!user) {
+            return res.status(404).json({
+                message: "User not found"
+            });
+        }
 
-module.exports = { handleRegister, handleLogin, handleUpdateProfile, handleGetProfile };
+        // Generate 6 digit OTP
+        const otp = Math.floor(
+            100000 + Math.random() * 900000
+        ).toString();
+
+        // OTP expires after 10 minutes
+        const otpExpires = new Date(
+            Date.now() + 10 * 60 * 1000
+        );
+
+        user.resetOtp = otp;
+        user.resetOtpExpires = otpExpires;
+
+        await user.save();
+
+        await sendPasswordResetOtp(email, otp);
+
+        res.status(200).json({
+            message: "OTP sent to your email"
+        });
+
+    } catch (err) {
+        console.error(err);
+
+        res.status(500).json({
+            message: "Failed to send OTP"
+        });
+    }
+}
+
+async function handleVerifyOtp(req, res) {
+    try {
+        const { email, otp } = req.body;
+
+        if (!email || !otp) {
+            return res.status(400).json({
+                message: "Email and OTP are required"
+            });
+        }
+
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return res.status(404).json({
+                message: "User not found"
+            });
+        }
+
+        if (!user.resetOtp || !user.resetOtpExpires) {
+            return res.status(400).json({
+                message: "No OTP request found"
+            });
+        }
+
+        if (user.resetOtpExpires < new Date()) {
+            return res.status(400).json({
+                message: "OTP has expired"
+            });
+        }
+
+        if (user.resetOtp !== otp) {
+            return res.status(400).json({
+                message: "Invalid OTP"
+            });
+        }
+
+        res.status(200).json({
+            message: "OTP verified successfully"
+        });
+
+    } catch (err) {
+        console.error(err);
+
+        res.status(500).json({
+            message: "Server Error"
+        });
+    }
+}
+
+async function handleResetPassword(req, res) {
+    try {
+        const {
+            email,
+            otp,
+            newPassword
+        } = req.body;
+
+        if (!email || !otp || !newPassword) {
+            return res.status(400).json({
+                message: "Email, OTP and new password are required"
+            });
+        }
+
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return res.status(404).json({
+                message: "User not found"
+            });
+        }
+
+        if (!user.resetOtp || !user.resetOtpExpires) {
+            return res.status(400).json({
+                message: "No OTP request found"
+            });
+        }
+
+        if (user.resetOtpExpires < new Date()) {
+            return res.status(400).json({
+                message: "OTP has expired"
+            });
+        }
+
+        if (user.resetOtp !== otp) {
+            return res.status(400).json({
+                message: "Invalid OTP"
+            });
+        }
+
+        // Hash new password
+        const hashedPassword = await bcrypt.hash(
+            newPassword,
+            10
+        );
+
+        user.password = hashedPassword;
+
+        // Clear OTP after successful reset
+        user.resetOtp = undefined;
+        user.resetOtpExpires = undefined;
+
+        await user.save();
+
+        res.status(200).json({
+            message: "Password reset successfully"
+        });
+
+    } catch (err) {
+        console.error(err);
+
+        res.status(500).json({
+            message: "Server Error"
+        });
+    }
+}
+
+module.exports = {
+    handleRegister,
+    handleLogin,
+    handleUpdateProfile,
+    handleGetProfile,
+    handleForgotPassword,
+    handleVerifyOtp,
+    handleResetPassword
+};

@@ -30,6 +30,53 @@
 const fs = require("fs");
 const axios = require("axios");
 
+
+async function sendPasswordResetOtp(email, otp) {
+    try {
+        const response = await axios.post(
+            "https://api.brevo.com/v3/smtp/email",
+            {
+                sender: {
+                    name: "Meeting App",
+                    email: process.env.EMAIL_FROM
+                },
+
+                to: [
+                    {
+                        email: email
+                    }
+                ],
+
+                subject: "Password Reset OTP",
+                htmlContent: `
+                    <h2>Password Reset</h2>
+                    <p>You requested to reset your password.</p>
+                    <p>Your OTP is:</p>
+                    <h1>${otp}</h1>
+                    <p>This OTP will expire in <b>10 minutes</b>.</p>
+                    <p>If you did not request a password reset, please ignore this email.</p>
+                `
+            },
+            {
+                headers: {
+                    "api-key": process.env.BREVO_API_KEY,
+                    "Content-Type": "application/json"
+                }
+            }
+        );
+
+        console.log("Password reset OTP sent:", response.data);
+        return response.data;
+
+    } catch (err) {
+        console.error(
+            err.response?.data || err.message
+        );
+        throw err;
+    }
+}
+
+
 async function sendMeetingInvitation(
     email,
     memberName,
@@ -141,5 +188,7 @@ async function sendPdf(email, memberName, pdfPath) {
 }
 
 module.exports = {
-    sendMeetingInvitation,sendPdf
+    sendPasswordResetOtp,
+    sendMeetingInvitation,
+    sendPdf
 };

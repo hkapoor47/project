@@ -11,6 +11,7 @@ const {
 const router = express.Router();
 
 router.post("/generate", handleGeneratePdf);
+
 router.post("/:meetingId/share", sharePdfEmail);
 
 module.exports = router;
