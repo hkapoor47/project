@@ -18,6 +18,10 @@ const llmRoute = require("./routes/llm");
 const meetingRoute = require("./routes/meeting");
 const pdfRoute = require("./routes/pdf");
 
+// =====================================================
+// MIDDLEWARE
+// =====================================================
+
 app.use(express.json());
 
 app.use(
@@ -27,6 +31,10 @@ app.use(
   })
 );
 
+// =====================================================
+// ROUTES
+// =====================================================
+
 app.use("/api/llm", llmRoute);
 app.use("/api/test", testRoute);
 app.use("/api/agora", agora);
@@ -35,7 +43,15 @@ app.use("/api/pdf", pdfRoute);
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/speech", speech);
 
+// =====================================================
+// HTTP SERVER
+// =====================================================
+
 const server = http.createServer(app);
+
+// =====================================================
+// SOCKET.IO
+// =====================================================
 
 const io = new Server(server, {
   cors: {
@@ -47,102 +63,139 @@ const io = new Server(server, {
 
 app.set("io", io);
 
-/*
-=====================================================
-MEETING PARTICIPANTS
-
-meetingId -> Map(socketId -> participant)
-=====================================================
-*/
+// =====================================================
+// MEETING PARTICIPANTS
+//
+// meetingId -> Map(socketId -> participant)
+// =====================================================
 
 const meetingParticipants = new Map();
 
+// =====================================================
+// TRANSCRIPT DUPLICATE TRACKER
+//
+// meetingId -> Map(duplicateKey -> timestamp)
+//
+// This prevents the same STT sentence from being
+// broadcast multiple times within a short period.
+// =====================================================
+
+const transcriptHistory = new Map();
+
+// Duplicate window in milliseconds
+const DUPLICATE_WINDOW = 2000;
+
+// =====================================================
+// SOCKET CONNECTION
+// =====================================================
+
 io.on("connection", (socket) => {
-  console.log("Client Connected:", socket.id);
+  console.log(
+    "Client Connected:",
+    socket.id
+  );
 
-  /*
-  =====================================================
-  JOIN MEETING SOCKET ROOM
-  =====================================================
-  */
+  // ===================================================
+  // JOIN MEETING
+  // ===================================================
 
-  socket.on("join-meeting", (data) => {
-    try {
-      const {
-        meetingId,
-        name,
-        email,
-        role,
-        uid,
-      } = data || {};
-
-      if (!meetingId) {
-        console.log("Meeting ID missing");
-        return;
-      }
-
-      socket.join(meetingId);
-
-      socket.meetingId = meetingId;
-
-      if (!meetingParticipants.has(meetingId)) {
-        meetingParticipants.set(
+  socket.on(
+    "join-meeting",
+    (data) => {
+      try {
+        const {
           meetingId,
-          new Map()
+          name,
+          email,
+          role,
+          uid,
+        } = data || {};
+
+        if (!meetingId) {
+          console.log(
+            "Meeting ID missing"
+          );
+
+          return;
+        }
+
+        // Join Socket.IO room
+        socket.join(meetingId);
+
+        socket.meetingId =
+          meetingId;
+
+        // Create participant map
+        if (
+          !meetingParticipants.has(
+            meetingId
+          )
+        ) {
+          meetingParticipants.set(
+            meetingId,
+            new Map()
+          );
+        }
+
+        const roomParticipants =
+          meetingParticipants.get(
+            meetingId
+          );
+
+        const participant = {
+          socketId:
+            socket.id,
+
+          name:
+            name ||
+            "Unknown",
+
+          email:
+            email ||
+            "",
+
+          role:
+            role ||
+            "participant",
+
+          uid:
+            uid !== undefined &&
+            uid !== null
+              ? Number(uid)
+              : null,
+        };
+
+        roomParticipants.set(
+          socket.id,
+          participant
+        );
+
+        console.log(
+          "Participant joined:",
+          participant
+        );
+
+        const participants =
+          Array.from(
+            roomParticipants.values()
+          );
+
+        io.to(meetingId).emit(
+          "participants-updated",
+          participants
+        );
+      } catch (error) {
+        console.error(
+          "join-meeting error:",
+          error
         );
       }
-
-      const roomParticipants =
-        meetingParticipants.get(meetingId);
-
-      const participant = {
-        socketId: socket.id,
-
-        name: name || "Unknown",
-
-        email: email || "",
-
-        role: role || "participant",
-
-        uid:
-          uid !== undefined &&
-          uid !== null
-            ? Number(uid)
-            : null,
-      };
-
-      roomParticipants.set(
-        socket.id,
-        participant
-      );
-
-      console.log(
-        "Participant joined:",
-        participant
-      );
-
-      const participants =
-        Array.from(
-          roomParticipants.values()
-        );
-
-      io.to(meetingId).emit(
-        "participants-updated",
-        participants
-      );
-    } catch (error) {
-      console.error(
-        "join-meeting error:",
-        error
-      );
     }
-  });
+  );
 
-  /*
-  =====================================================
-  UPDATE AGORA UID
-  =====================================================
-  */
+  // ===================================================
+  // UPDATE AGORA UID
+  // ===================================================
 
   socket.on(
     "participant-uid",
@@ -165,6 +218,7 @@ io.on("connection", (socket) => {
             "Invalid participant UID:",
             data
           );
+
           return;
         }
 
@@ -178,6 +232,7 @@ io.on("connection", (socket) => {
             "Meeting room not found:",
             meetingId
           );
+
           return;
         }
 
@@ -191,22 +246,28 @@ io.on("connection", (socket) => {
             "Participant not found:",
             socket.id
           );
+
           return;
         }
 
+        // Update Agora UID
         participant.uid =
           Number(uid);
 
+        // Update participant information
         if (name) {
-          participant.name = name;
+          participant.name =
+            name;
         }
 
         if (email) {
-          participant.email = email;
+          participant.email =
+            email;
         }
 
         if (role) {
-          participant.role = role;
+          participant.role =
+            role;
         }
 
         roomParticipants.set(
@@ -237,11 +298,9 @@ io.on("connection", (socket) => {
     }
   );
 
-  /*
-  =====================================================
-  RECORDING STARTED
-  =====================================================
-  */
+  // ===================================================
+  // RECORDING STARTED
+  // ===================================================
 
   socket.on(
     "recording-started",
@@ -263,11 +322,9 @@ io.on("connection", (socket) => {
     }
   );
 
-  /*
-  =====================================================
-  RECORDING STOPPED
-  =====================================================
-  */
+  // ===================================================
+  // RECORDING STOPPED
+  // ===================================================
 
   socket.on(
     "recording-stopped",
@@ -289,11 +346,6 @@ io.on("connection", (socket) => {
     }
   );
 
-  /*
-  =====================================================
-  END MEETING
-  =====================================================
-  */
 
   socket.on(
     "end-meeting",
@@ -307,45 +359,27 @@ io.on("connection", (socket) => {
         meetingId
       );
 
+      // Tell participants
       socket
         .to(meetingId)
         .emit(
           "meeting-ended"
         );
+
+      // Clear transcript duplicate history
+      transcriptHistory.delete(
+        meetingId
+      );
     }
   );
 
-  /*
-  =====================================================
-  TRANSCRIPT
 
-  Host sends:
-
-  {
-    meetingId,
-    uid,
-    text
-  }
-
-  Server finds:
-
-  uid -> participant.name
-
-  Then broadcasts:
-
-  {
-    meetingId,
-    uid,
-    speaker,
-    text
-  }
-  =====================================================
-  */
-
+  
   socket.on(
     "transcript",
     (data) => {
       try {
+     
         if (
           !data ||
           !data.meetingId ||
@@ -355,57 +389,169 @@ io.on("connection", (socket) => {
             "Invalid transcript data:",
             data
           );
+
           return;
         }
 
         const meetingId =
           data.meetingId;
 
+        const text =
+          String(
+            data.text
+          ).trim();
+
+        if (!text) {
+          return;
+        }
+
+
         const roomParticipants =
           meetingParticipants.get(
             meetingId
           );
 
+  
+        const sender =
+          roomParticipants
+            ? roomParticipants.get(
+                socket.id
+              )
+            : null;
+
+        if (
+          sender &&
+          sender.role &&
+          sender.role !== "host"
+        ) {
+          console.log(
+            "Transcript rejected - sender is not host:",
+            sender
+          );
+
+          return;
+        }
+
+    
         let uid = null;
 
         if (
           data.uid !== undefined &&
           data.uid !== null
         ) {
-          uid = Number(data.uid);
+          uid = Number(
+            data.uid
+          );
         }
 
         let speaker =
           data.speaker ||
           "Unknown";
 
-        /*
-        Find participant by Agora UID
-        */
-
         if (
           roomParticipants &&
           Number.isFinite(uid)
         ) {
           for (
-            const participant
-            of roomParticipants.values()
+            const participant of
+              roomParticipants.values()
           ) {
             if (
-              participant.uid === uid
+              participant.uid ===
+              uid
             ) {
               speaker =
                 participant.name;
+
               break;
             }
           }
         }
 
+          const normalizedText =
+          text
+            .toLowerCase()
+            .replace(
+              /\s+/g,
+              " "
+            )
+            .trim();
+
+
+        const duplicateKey =
+          `${uid}|${normalizedText}`;
+
+   
+        if (
+          !transcriptHistory.has(
+            meetingId
+          )
+        ) {
+          transcriptHistory.set(
+            meetingId,
+            new Map()
+          );
+        }
+
+        const meetingHistory =
+          transcriptHistory.get(
+            meetingId
+          );
+
+        const now =
+          Date.now();
+
+        const previousTime =
+          meetingHistory.get(
+            duplicateKey
+          );
+
+ 
+        if (
+          previousTime &&
+          now - previousTime <
+            DUPLICATE_WINDOW
+        ) {
+          console.log(
+            "DUPLICATE TRANSCRIPT IGNORED:",
+            {
+              meetingId,
+              uid,
+              text,
+            }
+          );
+
+          return;
+        }
+
+        meetingHistory.set(
+          duplicateKey,
+          now
+        );
+
+   
+        for (
+          const [
+            key,
+            timestamp,
+          ] of meetingHistory
+        ) {
+          if (
+            now - timestamp >
+            DUPLICATE_WINDOW
+          ) {
+            meetingHistory.delete(
+              key
+            );
+          }
+        }
+
+
         const transcriptData = {
           meetingId,
           uid,
           speaker,
-          text: data.text,
+          text,
         };
 
         console.log(
@@ -413,10 +559,7 @@ io.on("connection", (socket) => {
           transcriptData
         );
 
-        /*
-        Send transcript to everyone
-        */
-
+        
         io.to(meetingId).emit(
           "transcript",
           transcriptData
@@ -430,11 +573,6 @@ io.on("connection", (socket) => {
     }
   );
 
-  /*
-  =====================================================
-  DISCONNECT
-  =====================================================
-  */
 
   socket.on(
     "disconnect",
@@ -460,10 +598,12 @@ io.on("connection", (socket) => {
         return;
       }
 
+      // Remove participant
       roomParticipants.delete(
         socket.id
       );
 
+      // Send updated participants
       const participants =
         Array.from(
           roomParticipants.values()
@@ -474,22 +614,27 @@ io.on("connection", (socket) => {
         participants
       );
 
+     
       if (
-        roomParticipants.size === 0
+        roomParticipants.size ===
+        0
       ) {
         meetingParticipants.delete(
+          meetingId
+        );
+
+        transcriptHistory.delete(
+          meetingId
+        );
+
+        console.log(
+          "Meeting room cleaned:",
           meetingId
         );
       }
     }
   );
 });
-
-/*
-=====================================================
-HEALTH CHECK
-=====================================================
-*/
 
 app.get(
   "/",
@@ -507,16 +652,13 @@ app.get(
     res.json({
       message:
         "This is a protected route",
-      user: req.user,
+
+      user:
+        req.user,
     });
   }
 );
 
-/*
-=====================================================
-DATABASE
-=====================================================
-*/
 
 mongoose
   .connect(
@@ -536,9 +678,11 @@ mongoose
       }
     );
   })
-  .catch((err) => {
-    console.error(
-      "MongoDB connection error:",
-      err
-    );
-  });
+  .catch(
+    (err) => {
+      console.error(
+        "MongoDB connection error:",
+        err
+      );
+    }
+  );
