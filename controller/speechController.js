@@ -3,6 +3,10 @@ const {
     stopSpeechToText
 } = require("../services/speechService");
 
+const {
+    transliterateHindi
+} = require("../services/transliterationService");
+
 const Meeting = require("../models/meeting");
 
 async function handleSpeechToTextStart(req, res) {
@@ -141,7 +145,7 @@ async function handleSpeechCallback(req, res) {
                 word.isFinal === true
         );
 
-        const text = finalWords
+        let text = finalWords
             .map(word => word.text)
             .filter(Boolean)
             .join(" ")
@@ -154,7 +158,24 @@ async function handleSpeechCallback(req, res) {
 
             return res.sendStatus(200);
         }
+        const detectedLanguage =
+             body.language ||
+             body.lang ||
+             body.languageCode;
 
+        console.log("Detected language:", detectedLanguage);
+        
+        if (
+           detectedLanguage === "hi-IN" ||
+           detectedLanguage === "hi"
+           ) {
+        console.log("Hindi detected. Transliteration starting...");
+
+        text = await transliterateHindi(text);
+
+        console.log("Roman Hindi:",text);
+        }
+        
         const meeting =
             await Meeting.findOne({
                 meetingId: channel

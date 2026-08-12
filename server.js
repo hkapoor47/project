@@ -182,9 +182,7 @@ io.on(
           return;
         }
 
-        console.log(
-          "Meeting ended by host:",
-          meetingId
+        console.log("Meeting ended by host:", meetingId
         );
 
         socket
@@ -203,9 +201,7 @@ io.on(
             !data ||
             !data.meetingId
           ) {
-            console.log(
-              "Transcript meeting ID missing"
-            );
+            console.log("Transcript meeting ID missing");
             return;
           }
 
@@ -230,15 +226,9 @@ io.on(
     socket.on(
       "disconnect",
       () => {
+        console.log("Client Disconnected:",socket.id);
 
-        console.log(
-          "Client Disconnected:",
-          socket.id
-        );
-
-        const meetingId =
-          socket.meetingId;
-
+        const meetingId =socket.meetingId;
         if (!meetingId) {
           return;
         }
@@ -282,19 +272,13 @@ io.on(
 
 app.get("/",
   (req, res) => {
-    res.send(
-      "Backend is running successfully"
-    );
+    res.send("Backend is running successfully");
   }
 );
 
-app.get(
-  "/profile",auth,
+app.get("/profile",auth,
   (req, res) => {
-    res.json({
-      message:"This is a protected route",
-      user:req.user,
-    });
+    res.json({message:"This is a protected route",user:req.user,});
   }
 );
 

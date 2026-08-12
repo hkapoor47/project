@@ -54,7 +54,7 @@ async function startSpeechToText(channel) {
 
     const body = {
         name: channel,
-        languages: ["en-US"],
+        languages: ["en-US", "hi-IN"],
         maxIdleTime: 60,
         rtcConfig: {
             channelName: channel,
