@@ -101,6 +101,7 @@ async function handleSpeechToTextStart(req, res) {
 
 async function handleSpeechCallback(req, res) {
     try {
+    
         console.log(
             JSON.stringify(req.body, null, 2)
         );
@@ -125,12 +126,16 @@ async function handleSpeechCallback(req, res) {
 
         const uid = Number(rawUid);
 
-        console.log("Detected UID:",uid);
+        console.log(
+            "Detected speaker UID:",
+            uid
+        );
 
         if (!Number.isFinite(uid)) {
             console.log(
                 "Could not determine speaker UID"
             );
+
             return res.sendStatus(200);
         }
 
@@ -139,7 +144,10 @@ async function handleSpeechCallback(req, res) {
                 ? body.words
                 : [];
 
-        console.log( "Agora Words:",words  );
+        console.log(
+            "Agora Words:",
+            words
+        );
 
         const finalWords =
             words.filter(
@@ -149,11 +157,11 @@ async function handleSpeechCallback(req, res) {
                         word.is_final === true ||
                         word.isFinal === true
                     )
-            );
+                );
 
-       let text =
-             finalWords
-                .map((word) => 
+        let text =
+            finalWords
+                .map((word) =>
                     word.translatedText ||
                     word.translation ||
                     word.text
@@ -164,11 +172,17 @@ async function handleSpeechCallback(req, res) {
                 .trim();
 
         if (!text) {
-            console.log("No final transcript received" );
+            console.log(
+                "No final transcript received"
+            );
+
             return res.sendStatus(200);
         }
 
-        console.log( " final transcript:", text);
+        console.log(
+            "FINAL STT TEXT:",
+            text
+        );
 
         const meeting =
             await Meeting.findOne({
@@ -176,15 +190,17 @@ async function handleSpeechCallback(req, res) {
             });
 
         if (!meeting) {
-            console.log("Meeting not found:",channel);
+            console.log(
+                "Meeting not found:",
+                channel
+            );
+
             return res.sendStatus(200);
         }
 
-        console.log("Meeting members:",meeting.members);
-        console.log("Current transcript UID:", uid );
-
         let speaker = null;
 
+        // Host
         if (
             meeting.hostId &&
             String(meeting.hostId) ===
@@ -205,6 +221,7 @@ async function handleSpeechCallback(req, res) {
                         Number(member.uid) ===
                         Number(uid)
                 );
+
             if (member) {
                 speaker =
                     member.name ||
@@ -215,26 +232,29 @@ async function handleSpeechCallback(req, res) {
                     "Member found:",
                     {
                         uid,
-                        name:
-                            member.name,
-                        email:
-                            member.email
+                        name: member.name,
+                        email: member.email
                     }
                 );
             }
         }
 
+        // Fallback for host UID 1
         if (
             !speaker &&
             Number(uid) === 1
         ) {
-            speaker =meeting.hostName ||"Host";
+            speaker =
+                meeting.hostName ||
+                "Host";
         }
 
         if (!speaker) {
             speaker =
                 `Participant ${uid}`;
-            console.log("Speaker not found in meeting.members:",
+
+            console.log(
+                "Speaker not found:",
                 {
                     uid,
                     speaker
@@ -242,14 +262,20 @@ async function handleSpeechCallback(req, res) {
             );
         }
 
-        if (!Array.isArray( meeting.transcript)) {
+        if (
+            !Array.isArray(
+                meeting.transcript
+            )
+        ) {
             meeting.transcript = [];
         }
+
         meeting.transcript.push({
             uid,
             speaker,
             text
         });
+
         await meeting.save();
 
         console.log(
@@ -257,23 +283,35 @@ async function handleSpeechCallback(req, res) {
         );
 
         const transcriptData = {
-            meetingId:channel,
+            meetingId: channel,
             uid,
             speaker,
             text
         };
 
-        console.log("EMITTING TRANSCRIPT:",transcriptData);
-        io.to(channel).emit("transcript",transcriptData);
-    
-        console.log("Transcript emitted successfully.");
+        console.log(
+            "EMITTING TRANSCRIPT:",
+            transcriptData
+        );
+
+        io.to(channel).emit(
+            "transcript",
+            transcriptData
+        );
+
+        console.log(
+            "Transcript emitted successfully."
+        );
+
         return res.sendStatus(200);
 
     } catch (error) {
+
         console.error(
             "Speech callback error:",
             error
         );
+
         return res.sendStatus(500);
     }
 }

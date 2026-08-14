@@ -6,6 +6,10 @@ const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
 
+const transcriptHistory = new Map();
+
+const DUPLICATE_WINDOW = 2000;
+
 const auth = require("./middleware/authMiddleware");
 
 const app = express();
@@ -271,6 +275,186 @@ io.on(
 
       }
     );
+
+socket.on("transcript", async (data) => {
+  try {
+
+    if (
+      !data ||
+      !data.meetingId ||
+      !data.text
+    ) {
+      console.log(
+        "Invalid transcript data:",
+        data
+      );
+      return;
+    }
+
+    const {
+      meetingId,
+      uid,
+    } = data;
+
+    let text = String(data.text)
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!text) {
+      return;
+    }
+
+    const speakerUid = Number(uid);
+
+    if (!Number.isFinite(speakerUid)) {
+      console.log(
+        "Invalid speaker UID:",
+        uid
+      );
+      return;
+    }
+
+    console.log(
+      "Transcript received:",
+      {
+        meetingId,
+        uid: speakerUid,
+        text,
+      }
+    );
+
+    const roomParticipants =
+      meetingParticipants.get(meetingId);
+
+    if (!roomParticipants) {
+      console.log(
+        "Meeting room not found:",
+        meetingId
+      );
+      return;
+    }
+
+    let speaker = "Unknown";
+
+    for (
+      const participant of
+      roomParticipants.values()
+    ) {
+
+      if (
+        Number(participant.uid) ===
+        speakerUid
+      ) {
+
+        speaker =
+          participant.name ||
+          participant.email ||
+          "Participant";
+
+        break;
+      }
+    }
+
+    console.log(
+      "Speaker mapping:",
+      {
+        uid: speakerUid,
+        speaker,
+      }
+    );
+
+    const normalizedText =
+      text
+        .toLowerCase()
+        .replace(
+          /[.,!?;:"'`]/g,
+          ""
+        )
+        .replace(
+          /\s+/g,
+          " "
+        )
+        .trim();
+
+    const duplicateKey =
+      `${speakerUid}|${normalizedText}`;
+
+    if (
+      !transcriptHistory.has(
+        meetingId
+      )
+    ) {
+
+      transcriptHistory.set(
+        meetingId,
+        new Map()
+      );
+    }
+
+    const meetingHistory =
+      transcriptHistory.get(
+        meetingId
+      );
+
+    const now = Date.now();
+
+    const previousTime =
+      meetingHistory.get(
+        duplicateKey
+      );
+
+    if (
+      previousTime &&
+      now - previousTime <
+        DUPLICATE_WINDOW
+    ) {
+
+      console.log(
+        "DUPLICATE TRANSCRIPT IGNORED:",
+        {
+          meetingId,
+          uid: speakerUid,
+          speaker,
+          text,
+        }
+      );
+      return;
+    }
+
+    meetingHistory.set(
+      duplicateKey,
+      now
+    );
+
+    for (
+      const [
+        key,
+        timestamp,
+      ] of meetingHistory
+    ) {
+
+      if (
+        now - timestamp >
+        DUPLICATE_WINDOW
+      ) {
+        meetingHistory.delete(key);
+      }
+    }
+
+    const transcriptData = {
+      meetingId,
+      uid: speakerUid,
+      speaker,
+      text,
+    };
+    console.log("FINAL TRANSCRIPT:", transcriptData);
+
+    io.to(meetingId).emit("transcript",transcriptData);
+
+  } catch (error) {
+    console.error("Transcript socket error:",error);
+  }
+});
 
     socket.on("disconnect",() => {
       console.log("Client Disconnected:",socket.id);
