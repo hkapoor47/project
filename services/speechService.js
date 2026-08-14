@@ -79,6 +79,16 @@ async function startSpeechToText(
         languages: ["en-US","hi-IN"],
         maxIdleTime:60,
 
+          translateConfig: {
+             enable: true,
+            languages: [
+              {
+                 source: "hi-IN",
+                 target: ["en-US"]
+              }
+            ]
+        },
+
         rtcConfig: {
             channelName:
                 channel,
