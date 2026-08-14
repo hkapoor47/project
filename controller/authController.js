@@ -149,6 +149,8 @@ async function handleGetProfile(req, res) {
         });
     }
 };
+
+
 async function handleForgotPassword(req, res) {
     try {
         const { email } = req.body;
@@ -167,7 +169,6 @@ async function handleForgotPassword(req, res) {
             });
         }
 
-        // Generate 6 digit OTP
         const otp = Math.floor(
             100000 + Math.random() * 900000
         ).toString();
@@ -196,6 +197,7 @@ async function handleForgotPassword(req, res) {
         });
     }
 }
+
 
 async function handleVerifyOtp(req, res) {
     try {
@@ -233,8 +235,20 @@ async function handleVerifyOtp(req, res) {
             });
         }
 
+        const resetToken = jwt.sign(
+            {
+                id: user._id.toString(),
+                purpose: "password-reset"
+            },
+            process.env.JWT_SECRET,
+            {
+                expiresIn: "10m"
+            }
+        );
+
         res.status(200).json({
-            message: "OTP verified successfully"
+            message: "OTP verified successfully",
+            resetToken
         });
 
     } catch (err) {
@@ -246,21 +260,49 @@ async function handleVerifyOtp(req, res) {
     }
 }
 
+
 async function handleResetPassword(req, res) {
     try {
-        const {
-            email,
-            otp,
-            newPassword
-        } = req.body;
+        const { newPassword } = req.body;
 
-        if (!email || !otp || !newPassword) {
+        if (!newPassword) {
             return res.status(400).json({
-                message: "Email, OTP and new password are required"
+                message: "New password is required"
             });
         }
 
-        const user = await User.findOne({ email });
+       
+        const authHeader = req.headers.authorization;
+
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            return res.status(401).json({
+                message: "Reset token is required"
+            });
+        }
+
+        const resetToken = authHeader.split(" ")[1];
+
+        let decoded;
+
+        try {
+            decoded = jwt.verify(
+                resetToken,
+                process.env.JWT_SECRET
+            );
+        } catch (err) {
+            return res.status(401).json({
+                message: "Invalid or expired reset token"
+            });
+        }
+
+       
+        if (decoded.purpose !== "password-reset") {
+            return res.status(401).json({
+                message: "Invalid reset token"
+            });
+        }
+
+        const user = await User.findById(decoded.id);
 
         if (!user) {
             return res.status(404).json({
@@ -268,25 +310,6 @@ async function handleResetPassword(req, res) {
             });
         }
 
-        if (!user.resetOtp || !user.resetOtpExpires) {
-            return res.status(400).json({
-                message: "No OTP request found"
-            });
-        }
-
-        if (user.resetOtpExpires < new Date()) {
-            return res.status(400).json({
-                message: "OTP has expired"
-            });
-        }
-
-        if (user.resetOtp !== otp) {
-            return res.status(400).json({
-                message: "Invalid OTP"
-            });
-        }
-
-        // Hash new password
         const hashedPassword = await bcrypt.hash(
             newPassword,
             10
@@ -294,7 +317,6 @@ async function handleResetPassword(req, res) {
 
         user.password = hashedPassword;
 
-        // Clear OTP after successful reset
         user.resetOtp = undefined;
         user.resetOtpExpires = undefined;
 
@@ -312,7 +334,6 @@ async function handleResetPassword(req, res) {
         });
     }
 }
-
 module.exports = {
     handleRegister,
     handleLogin,
