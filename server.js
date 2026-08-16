@@ -278,75 +278,134 @@ io.on(
 
 socket.on("transcript", async (data) => {
   try {
-    if (!data || !data.meetingId || !data.text) return;
+    if (!data || !data.meetingId || !data.text) {
+      return;
+    }
 
     const { meetingId, uid } = data;
-    let text = String(data.text).replace(/\s+/g, " ").trim();
-    if (!text) return;
+
+    let text = String(data.text)
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!text) {
+      return;
+    }
 
     const speakerUid = Number(uid);
-    if (!Number.isFinite(speakerUid)) return;
 
+    if (!Number.isFinite(speakerUid)) {
+      console.log("Invalid speaker UID:", uid);
+      return;
+    }
+
+    
     const roomParticipants = meetingParticipants.get(meetingId);
+
     if (!roomParticipants) {
       console.log("Room not found:", meetingId);
       return;
     }
 
-  
     let speaker = null;
+
     for (const participant of roomParticipants.values()) {
       if (Number(participant.uid) === speakerUid) {
-        speaker = participant.name || participant.email || "Participant";
+        speaker =
+          participant.name ||
+          participant.email ||
+          "Participant";
+
         break;
       }
     }
 
     if (!speaker) {
-      for (const participant of roomParticipants.values()) {
-        if (participant.role === "host") {
-          speaker = participant.name || "Host";
-          break;
-        }
-      }
+      speaker = "Unknown";
     }
 
-    if (!speaker) speaker = "Participant";
+    console.log(
+      "Speaker found:",
+      speaker,
+      "for UID:",
+      speakerUid
+    );
 
-    console.log("Speaker found:", speaker, "for UID:", speakerUid);
+    const normalizedText = text
+      .toLowerCase()
+      .replace(/[.,!?;:"'`]/g, "")
+      .trim();
 
-   
-    const normalizedText = text.toLowerCase().replace(/[.,!?;:"'`]/g, "").trim();
     const duplicateKey = `${speakerUid}|${normalizedText}`;
 
     if (!transcriptHistory.has(meetingId)) {
-      transcriptHistory.set(meetingId, new Map());
+      transcriptHistory.set(
+        meetingId,
+        new Map()
+      );
     }
 
-    const meetingHistory = transcriptHistory.get(meetingId);
-    const now = Date.now();
-    const previousTime = meetingHistory.get(duplicateKey);
+    const meetingHistory =
+      transcriptHistory.get(meetingId);
 
-    if (previousTime && now - previousTime < DUPLICATE_WINDOW) {
-      console.log("Duplicate ignored");
+    const now = Date.now();
+
+    const previousTime =
+      meetingHistory.get(duplicateKey);
+
+    if (
+      previousTime &&
+      now - previousTime < DUPLICATE_WINDOW
+    ) {
+      console.log(
+        "Duplicate transcript ignored:",
+        text
+      );
+
       return;
     }
 
-    meetingHistory.set(duplicateKey, now);
+   
+    meetingHistory.set(
+      duplicateKey,
+      now
+    );
 
-
-    for (const [key, timestamp] of meetingHistory) {
-      if (now - timestamp > DUPLICATE_WINDOW) meetingHistory.delete(key);
+  
+    for (
+      const [key, timestamp]
+      of meetingHistory
+    ) {
+      if (
+        now - timestamp >
+        DUPLICATE_WINDOW
+      ) {
+        meetingHistory.delete(key);
+      }
     }
 
-    const transcriptData = { meetingId, uid: speakerUid, speaker, text };
-    console.log("FINAL TRANSCRIPT:", transcriptData);
+    const transcriptData = {
+      meetingId,
+      uid: speakerUid,
+      speaker,
+      text,
+    };
 
-    
-    io.to(meetingId).emit("transcript", transcriptData);
+    console.log(
+      "FINAL TRANSCRIPT:",
+      transcriptData
+    );
+
+    io.to(meetingId).emit(
+      "transcript",
+      transcriptData
+    );
 
   } catch (error) {
-    console.error("Transcript socket error:", error);
+    console.error(
+      "Transcript socket error:",
+      error
+    );
   }
 });
 
