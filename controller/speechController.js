@@ -329,52 +329,82 @@ async function handleSpeechCallback(req, res) {
       return res.sendStatus(200);
     }
 
-    // ================================
-    // FIND SPEAKER
-    // ================================
+ // ================================
+// FIND SPEAKER
+// ================================
 
-    let speaker = null;
+let speaker = null;
 
-    if (
-      Array.isArray(
-        meeting.members
-      )
-    ) {
+// HOST UID = 1
+if (
+    uid === 1 &&
+    meeting.hostId
+) {
+    const host =
+        await User.findById(
+            meeting.hostId
+        ).select("name email");
 
-      const member =
-        meeting.members.find(
-          (m) =>
-            Number(m.uid) === uid
-        );
-
-      if (member) {
-
+    if (host) {
         speaker =
-          member.name ||
-          member.email ||
-          "Participant";
+            host.name ||
+            host.email ||
+            "Host";
 
         console.log(
-          "Found speaker in members:",
-          speaker
+            "Host resolved:",
+            speaker,
+            "UID:",
+            uid
         );
-      }
     }
+}
 
-    // IMPORTANT:
-    // Never automatically assign host
-    // when UID isn't mapped.
+// PARTICIPANT
+if (
+    !speaker &&
+    Array.isArray(meeting.members)
+) {
+    const member =
+        meeting.members.find(
+            (m) =>
+                Number(m.uid) === uid
+        );
 
-    if (!speaker) {
-      speaker = "Unknown";
+    if (member) {
+        speaker =
+            member.name ||
+            member.email ||
+            "Participant";
+
+        console.log(
+            "Participant resolved:",
+            speaker,
+            "UID:",
+            uid
+        );
     }
+}
+
+// FALLBACK
+if (!speaker) {
+    speaker = "Unknown";
 
     console.log(
-      "Speaker resolved:",
-      speaker,
-      "UID:",
-      uid
+        "Speaker could not be resolved:",
+        {
+            uid,
+            meetingId: channel
+        }
     );
+}
+
+console.log(
+    "FINAL SPEAKER:",
+    speaker,
+    "UID:",
+    uid
+);
 
     // ================================
     // SAVE TRANSCRIPT
