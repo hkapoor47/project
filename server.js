@@ -278,181 +278,75 @@ io.on(
 
 socket.on("transcript", async (data) => {
   try {
+    if (!data || !data.meetingId || !data.text) return;
 
-    if (
-      !data ||
-      !data.meetingId ||
-      !data.text
-    ) {
-      console.log(
-        "Invalid transcript data:",
-        data
-      );
-      return;
-    }
-
-    const {
-      meetingId,
-      uid,
-    } = data;
-
-    let text = String(data.text)
-      .replace(/\s+/g, " ")
-      .trim();
-
-    if (!text) {
-      return;
-    }
+    const { meetingId, uid } = data;
+    let text = String(data.text).replace(/\s+/g, " ").trim();
+    if (!text) return;
 
     const speakerUid = Number(uid);
+    if (!Number.isFinite(speakerUid)) return;
 
-    if (!Number.isFinite(speakerUid)) {
-      console.log(
-        "Invalid speaker UID:",
-        uid
-      );
-      return;
-    }
-
-    console.log(
-      "Transcript received:",
-      {
-        meetingId,
-        uid: speakerUid,
-        text,
-      }
-    );
-
-    const roomParticipants =
-      meetingParticipants.get(meetingId);
-
+    const roomParticipants = meetingParticipants.get(meetingId);
     if (!roomParticipants) {
-      console.log(
-        "Meeting room not found:",
-        meetingId
-      );
+      console.log("Room not found:", meetingId);
       return;
     }
 
-    let speaker = "Unknown";
-
-    for (
-      const participant of
-      roomParticipants.values()
-    ) {
-
-      if (
-        Number(participant.uid) ===
-        speakerUid
-      ) {
-
-        speaker =
-          participant.name ||
-          participant.email ||
-          "Participant";
-
+  
+    let speaker = null;
+    for (const participant of roomParticipants.values()) {
+      if (Number(participant.uid) === speakerUid) {
+        speaker = participant.name || participant.email || "Participant";
         break;
       }
     }
 
-    console.log(
-      "Speaker mapping:",
-      {
-        uid: speakerUid,
-        speaker,
+    if (!speaker) {
+      for (const participant of roomParticipants.values()) {
+        if (participant.role === "host") {
+          speaker = participant.name || "Host";
+          break;
+        }
       }
-    );
-
-    const normalizedText =
-      text
-        .toLowerCase()
-        .replace(
-          /[.,!?;:"'`]/g,
-          ""
-        )
-        .replace(
-          /\s+/g,
-          " "
-        )
-        .trim();
-
-    const duplicateKey =
-      `${speakerUid}|${normalizedText}`;
-
-    if (
-      !transcriptHistory.has(
-        meetingId
-      )
-    ) {
-
-      transcriptHistory.set(
-        meetingId,
-        new Map()
-      );
     }
 
-    const meetingHistory =
-      transcriptHistory.get(
-        meetingId
-      );
+    if (!speaker) speaker = "Participant";
 
+    console.log("Speaker found:", speaker, "for UID:", speakerUid);
+
+   
+    const normalizedText = text.toLowerCase().replace(/[.,!?;:"'`]/g, "").trim();
+    const duplicateKey = `${speakerUid}|${normalizedText}`;
+
+    if (!transcriptHistory.has(meetingId)) {
+      transcriptHistory.set(meetingId, new Map());
+    }
+
+    const meetingHistory = transcriptHistory.get(meetingId);
     const now = Date.now();
+    const previousTime = meetingHistory.get(duplicateKey);
 
-    const previousTime =
-      meetingHistory.get(
-        duplicateKey
-      );
-
-    if (
-      previousTime &&
-      now - previousTime <
-        DUPLICATE_WINDOW
-    ) {
-
-      console.log(
-        "DUPLICATE TRANSCRIPT IGNORED:",
-        {
-          meetingId,
-          uid: speakerUid,
-          speaker,
-          text,
-        }
-      );
+    if (previousTime && now - previousTime < DUPLICATE_WINDOW) {
+      console.log("Duplicate ignored");
       return;
     }
 
-    meetingHistory.set(
-      duplicateKey,
-      now
-    );
+    meetingHistory.set(duplicateKey, now);
 
-    for (
-      const [
-        key,
-        timestamp,
-      ] of meetingHistory
-    ) {
 
-      if (
-        now - timestamp >
-        DUPLICATE_WINDOW
-      ) {
-        meetingHistory.delete(key);
-      }
+    for (const [key, timestamp] of meetingHistory) {
+      if (now - timestamp > DUPLICATE_WINDOW) meetingHistory.delete(key);
     }
 
-    const transcriptData = {
-      meetingId,
-      uid: speakerUid,
-      speaker,
-      text,
-    };
+    const transcriptData = { meetingId, uid: speakerUid, speaker, text };
     console.log("FINAL TRANSCRIPT:", transcriptData);
 
-    io.to(meetingId).emit("transcript",transcriptData);
+    
+    io.to(meetingId).emit("transcript", transcriptData);
 
   } catch (error) {
-    console.error("Transcript socket error:",error);
+    console.error("Transcript socket error:", error);
   }
 });
 
