@@ -89,13 +89,11 @@ ${transcript}
     return text;
 
   } catch (error) {
-    console.error("========== GEMINI ERROR ==========");
     console.error("Message:", error.message);
     console.error("Status:", error.status);
     console.error("Name:", error.name);
     console.error("Full error:", error);
-    console.error("==================================");
-
+  
     throw new Error(
       `Gemini API failed: ${error.message || "Unknown Gemini error"}`
     );
