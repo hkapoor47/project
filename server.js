@@ -294,7 +294,7 @@ socket.on("transcript", async (data) => {
       return;
     }
 
-    const { meetingId, uid } = data;
+    const { meetingId, uid , text: rawText, speaker: clientSpeaker} = data;
 
     let text = String(data.text)
       .replace(/\s+/g, " ")
@@ -322,8 +322,8 @@ socket.on("transcript", async (data) => {
     console.log("All participants:", Array.from(roomParticipants.values()));
     console.log("Looking for UID:", speakerUid);
 
-    let speaker = null;
-
+    let speaker = clientSpeaker || "Participant";
+if(roomParticipants){
     for (const participant of roomParticipants.values()) {
       if (Number(participant.uid) === speakerUid) {
         speaker =
@@ -334,7 +334,7 @@ socket.on("transcript", async (data) => {
         break;
       }
     }
-
+  }
     if (!speaker) {
       speaker = "Unknown";
     }
