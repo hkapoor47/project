@@ -101,6 +101,7 @@ async function handleSpeechToTextStart(req, res) {
 
 async function handleSpeechCallback(req, res) {
   try {
+     console.log("✅ CALLBACK HIT");
     console.log("Callback received:", JSON.stringify(req.body, null, 2));
 
     const io = req.app.get("io");

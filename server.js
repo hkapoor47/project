@@ -488,6 +488,11 @@ socket.on("transcript", async (data) => {
   }
 );
 
+app.post("/test-callback", (req, res) => {
+  console.log("✅ TEST CALLBACK HIT:", req.body);
+  res.sendStatus(200);
+});
+
 app.get("/",
   (req, res) => {
     res.send("Backend is running successfully");
