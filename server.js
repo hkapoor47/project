@@ -131,98 +131,110 @@ io.on(
         }
       }
     );
+socket.on("participant-uid", (data) => {
+  try {
+    const {
+      meetingId,
+      uid,
+      name,
+      email,
+      role,
+    } = data || {};
 
-    socket.on(
-      "participant-uid",
-      (data) => {
-        try {
-          const {
-            meetingId,
-            uid,
-            name,
-            email,
-            role,
-          } = data || {};
+    // Validate data
+    if (
+      !meetingId ||
+      uid === undefined ||
+      uid === null
+    ) {
+      console.log(
+        "Invalid participant UID:",
+        data
+      );
+      return;
+    }
 
-          if (
-            !meetingId ||
-            uid === undefined ||
-            uid === null
-          ) {
-            console.log(
-              "Invalid participant UID:",
-              data
-            );
-            return;
-          }
+    const roomParticipants =
+      meetingParticipants.get(meetingId);
 
-          const roomParticipants =
-            meetingParticipants.get(
-              meetingId
-            );
+    if (!roomParticipants) {
+      console.log(
+        "Meeting room not found:",
+        meetingId
+      );
+      return;
+    }
 
-          if (!roomParticipants) {
-            console.log(
-              "Meeting room not found:",
-              meetingId
-            );
-            return;
-          }
+    /*
+     * Get existing participant
+     * or create a new one.
+     */
+    let participant =
+      roomParticipants.get(socket.id);
 
-          const participant =
-            roomParticipants.get(socket.id);
-          if (!participant) {
-            console.log(
-              "Participant not found for socket:",
-              socket.id
-            );
-            return;
-          }
+    if (!participant) {
+      participant = {
+        socketId: socket.id,
+        name:
+          name ||
+          email ||
+          "Unknown",
+        email: email || "",
+        role:
+          role ||
+          "participant",
+        uid: Number(uid),
+      };
+    } else {
+      participant.uid = Number(uid);
 
-          participant.uid =Number(uid);
-          if (name) {
-            participant.name =
-              name;
-          }
-
-          if (email) {
-            participant.email =email;
-          }
-
-          if (role) {
-            participant.role =role;
-          }
-
-          roomParticipants.set(
-            socket.id,
-            participant
-          );
-
-          console.log(
-            "Agora UID mapped successfully:",
-            participant
-          );
-
-          const participants =
-            Array.from(
-              roomParticipants.values()
-            );
-
-          io.to(
-            meetingId
-          ).emit(
-            "participants-updated",
-            participants
-          );
-
-        } catch (error) {
-          console.error(
-            "participant-uid error:",
-            error
-          );
-        }
+      if (name) {
+        participant.name = name;
       }
+
+      if (email) {
+        participant.email = email;
+      }
+
+      if (role) {
+        participant.role = role;
+      }
+    }
+
+    /*
+     * Save participant with Agora UID
+     */
+    roomParticipants.set(
+      socket.id,
+      participant
     );
+
+    console.log(
+      "Agora UID mapped successfully:",
+      participant
+    );
+
+    /*
+     * Send updated participant list
+     * to everyone in the meeting.
+     */
+    const participants =
+      Array.from(
+        roomParticipants.values()
+      );
+
+    io.to(meetingId).emit(
+      "participants-updated",
+      participants
+    );
+
+  } catch (error) {
+    console.error(
+      "participant-uid error:",
+      error
+    );
+  }
+});
 
     socket.on(
       "recording-started",
