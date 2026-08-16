@@ -319,6 +319,9 @@ socket.on("transcript", async (data) => {
       return;
     }
 
+    console.log("All participants:", Array.from(roomParticipants.values()));
+    console.log("Looking for UID:", speakerUid);
+
     let speaker = null;
 
     for (const participant of roomParticipants.values()) {
