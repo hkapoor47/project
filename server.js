@@ -7,6 +7,8 @@ const http = require("http");
 const { Server } = require("socket.io");
 
 const auth = require("./middleware/authMiddleware");
+const Meeting = require("./models/meeting");
+const User = require("./models/user");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -46,6 +48,7 @@ const io = new Server(server, {
 app.set("io", io);
 
 const meetingParticipants = new Map();
+const transcriptHistory = new Map();
 
 io.on("connection", (socket) => {
   console.log("Client Connected:", socket.id);
@@ -153,6 +156,74 @@ io.on("connection", (socket) => {
 
     console.log("Meeting ended by host:", meetingId);
     socket.to(meetingId).emit("meeting-ended");
+  });
+
+  socket.on("transcript", async (data) => {
+    try {
+      const meetingId = data?.meetingId;
+      const uid = Number(data?.uid);
+      const text = String(data?.text || "").replace(/\s+/g, " ").trim();
+
+      if (!meetingId || !Number.isFinite(uid) || !text) {
+        return;
+      }
+
+      const dedupKey = data.sentenceId
+        ? `${meetingId}:${uid}:${data.sentenceId}`
+        : `${meetingId}:${uid}:${text.toLowerCase()}`;
+
+      if (transcriptHistory.has(dedupKey)) {
+        return;
+      }
+
+      transcriptHistory.set(dedupKey, Date.now());
+
+      for (const [key, timestamp] of transcriptHistory) {
+        if (Date.now() - timestamp > 60000) {
+          transcriptHistory.delete(key);
+        }
+      }
+
+      const meeting = await Meeting.findOne({ meetingId });
+
+      if (!meeting) {
+        console.log("Transcript meeting not found:", meetingId);
+        return;
+      }
+
+      let speaker = null;
+
+      if (uid === 1 && meeting.hostId) {
+        const host = await User.findById(meeting.hostId).select("name email");
+        speaker = host?.name || host?.email || null;
+      }
+
+      if (!speaker && Array.isArray(meeting.members)) {
+        const member = meeting.members.find(
+          (candidate) => Number(candidate.uid) === uid
+        );
+        speaker = member?.name || member?.email || null;
+      }
+
+      speaker ||= `Participant ${uid}`;
+
+      const transcriptData = {
+        meetingId,
+        uid,
+        speaker,
+        text,
+        timestamp: new Date(),
+      };
+
+      meeting.transcript ||= [];
+      meeting.transcript.push(transcriptData);
+      await meeting.save();
+
+      console.log("Transcript saved:", transcriptData);
+      io.to(meetingId).emit("transcript", transcriptData);
+    } catch (error) {
+      console.error("Transcript socket error:", error);
+    }
   });
 
   socket.on("disconnect", () => {
