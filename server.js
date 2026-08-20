@@ -49,6 +49,67 @@ app.set("io", io);
 
 const meetingParticipants = new Map();
 const transcriptHistory = new Map();
+const TRANSLATION_SERVICE_URL = process.env.TRANSLATION_SERVICE_URL;
+
+function containsDevanagari(text) {
+  return /[\u0900-\u097F]/.test(text);
+}
+
+async function translateHindiToEnglish(text) {
+  // Non-Hindi captions must pass through unchanged. This also avoids an
+  // unnecessary request for English speech.
+  if (!containsDevanagari(text)) {
+    return text;
+  }
+
+  if (!TRANSLATION_SERVICE_URL) {
+    console.warn(
+      "TRANSLATION_SERVICE_URL is not configured; using original Hindi transcript"
+    );
+    return text;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const response = await fetch(
+      `${TRANSLATION_SERVICE_URL.replace(/\/$/, "")}/translate`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          q: text,
+          source: "hi",
+          target: "en",
+          format: "text",
+        }),
+        signal: controller.signal,
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Translation service returned ${response.status}`);
+    }
+
+    const result = await response.json();
+    const translatedText = String(result.translatedText || "").trim();
+
+    if (!translatedText) {
+      throw new Error("Translation service returned an empty translation");
+    }
+
+    return translatedText;
+  } catch (error) {
+    // Never lose a caption when the translation service is temporarily down.
+    console.error("Hindi translation failed; using original transcript:", error.message);
+    return text;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 io.on("connection", (socket) => {
   console.log("Client Connected:", socket.id);
@@ -162,15 +223,17 @@ io.on("connection", (socket) => {
     try {
       const meetingId = data?.meetingId;
       const uid = Number(data?.uid);
-      const text = String(data?.text || "").replace(/\s+/g, " ").trim();
+      const originalText = String(data?.text || "")
+        .replace(/\s+/g, " ")
+        .trim();
 
-      if (!meetingId || !Number.isFinite(uid) || !text) {
+      if (!meetingId || !Number.isFinite(uid) || !originalText) {
         return;
       }
 
       const dedupKey = data.sentenceId
         ? `${meetingId}:${uid}:${data.sentenceId}`
-        : `${meetingId}:${uid}:${text.toLowerCase()}`;
+        : `${meetingId}:${uid}:${originalText.toLowerCase()}`;
 
       if (transcriptHistory.has(dedupKey)) {
         return;
@@ -206,6 +269,8 @@ io.on("connection", (socket) => {
       }
 
       speaker ||= `Participant ${uid}`;
+
+      const text = await translateHindiToEnglish(originalText);
 
       const transcriptData = {
         meetingId,
@@ -256,6 +321,7 @@ io.on("connection", (socket) => {
 
 app.post("/test-callback", (req, res) => {
   console.log("TEST CALLBACK HIT:", req.body);
+  
   res.sendStatus(200);
 });
 
