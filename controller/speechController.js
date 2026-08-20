@@ -2,6 +2,7 @@ const {
   startSpeechToText,
   stopSpeechToText,
 } = require("../services/speechService");
+const { translateTranscript } = require("../services/translationService");
 
 const Meeting = require("../models/meeting");
 const User = require("../models/user");
@@ -72,49 +73,9 @@ function getFinalWords(payload) {
   );
 }
 
-function getEnglishTranslation(payload) {
-  const translations = getFirstValue(payload, [
-    "trans",
-    "translations",
-    "result.trans",
-    "result.translations",
-  ]);
-
-  if (!Array.isArray(translations)) {
-    return "";
-  }
-
-  const english = translations.find((translation) => {
-    const language = String(
-      translation?.lang || translation?.language || translation?.target || ""
-    ).toLowerCase();
-
-    return language === "en" || language === "en-us";
-  });
-
-  if (!english) {
-    return "";
-  }
-
-  const values = Array.isArray(english.texts)
-    ? english.texts
-    : Array.isArray(english.words)
-      ? english.words.map((word) => word?.text)
-      : [english.text || english.translation];
-
-  return normalizeText(values.filter(Boolean).join(" "));
-}
-
 function getFinalText(payload, finalWords) {
-  const translatedText = getEnglishTranslation(payload);
-
-  if (translatedText) {
-    return translatedText;
-  }
-
   return normalizeText(
-    finalWords
-      .map((word) => word.translatedText || word.translation || word.text)
+    finalWords.map((word) => word.text)
       .filter(Boolean)
       .join(" ")
   );
@@ -218,9 +179,9 @@ async function handleSpeechCallback(req, res) {
     }
 
     const finalWords = getFinalWords(payload);
-    const text = getFinalText(payload, finalWords);
+    const originalText = getFinalText(payload, finalWords);
 
-    if (!text) {
+    if (!originalText) {
       console.log("Ignoring callback without final transcript text.");
       return res.sendStatus(200);
     }
@@ -228,7 +189,7 @@ async function handleSpeechCallback(req, res) {
     const sentenceId = getFirstValue(payload, ["sentence_id", "sentenceId"]);
     const dedupKey = sentenceId
       ? `${channel}:${sentenceId}`
-      : `${channel}:${uid}:${text.toLowerCase()}`;
+      : `${channel}:${uid}:${originalText.toLowerCase()}`;
 
     if (isDuplicate(dedupKey)) {
       console.log("Duplicate transcript ignored:", dedupKey);
@@ -257,6 +218,8 @@ async function handleSpeechCallback(req, res) {
     }
 
     speaker ||= `Participant ${uid}`;
+
+    const text = await translateTranscript(originalText);
 
     if (!Array.isArray(meeting.transcript)) {
       meeting.transcript = [];
