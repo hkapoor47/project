@@ -51,7 +51,7 @@ app.set("io", io);
 
 const meetingParticipants = new Map();
 const transcriptHistory = new Map();
-const TRANSLATION_SERVICE_URL = process.env.TRANSLATION_SERVICE_URL;
+const TRANSLATION_SERVICE_URL = process.env.LIBRETRANSLATE_URL;
 
 function containsDevanagari(text) {
   return /[\u0900-\u097F]/.test(text);
