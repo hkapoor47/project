@@ -1,5 +1,5 @@
-FROM libretranslate/libretranslate:latest
+FROM libretranslate/libretranslate
 
-EXPOSE 5000
+EXPOSE 10000
 
-CMD ["--host", "0.0.0.0", "--port", "5000"]
+CMD ["--host", "0.0.0.0", "--port", "10000"]
