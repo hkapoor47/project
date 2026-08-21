@@ -19,7 +19,7 @@ const testRoute = require("./routes/test");
 const llmRoute = require("./routes/llm");
 const meetingRoute = require("./routes/meeting");
 const pdfRoute = require("./routes/pdf");
-const translation = require("./routes/translation");
+const translate = require("./routes/translation");
 
 app.use(express.json());
 app.use(
@@ -36,7 +36,7 @@ app.use("/api/meeting", meetingRoute);
 app.use("/api/pdf", pdfRoute);
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/speech", speech);
-app.use("/api/translation", translation);
+app.use("/api/translate", translate);
 
 const server = http.createServer(app);
 const io = new Server(server, {
