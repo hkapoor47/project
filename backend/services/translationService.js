@@ -9,7 +9,7 @@ async function translateTranscript(text) {
         const response = await axios.post(
             `${process.env.LIBRETRANSLATE_URL}`,
             {
-                q: text,
+                q: text.trim(),
                 source: "auto",
                 target: "en",
                 format: "text"
@@ -18,7 +18,7 @@ async function translateTranscript(text) {
                 headers: {
                     "Content-Type": "application/json"
                 },
-                timeout: 10000
+                timeout: 30000
             }
         );
 
