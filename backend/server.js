@@ -161,13 +161,15 @@ io.on("connection", (socket) => {
     socket.to(meetingId).emit("meeting-ended");
   });
 
- socket.on("transcript", async (data) => {
+socket.on("transcript", async (data) => {
     try {
-        console.log(" TRANSCRIPT FROM CLIENT:", data);
+        console.log("TRANSCRIPT FROM CLIENT:", data);
 
         const {
             meetingId,
             uid,
+            name,
+            email,
             text,
             sentenceId
         } = data;
@@ -176,33 +178,9 @@ io.on("connection", (socket) => {
             return;
         }
 
-        let translatedText = text;
-
-        try {
-            translatedText =
-                await translateTranscript(text);
-
-            console.log(
-                "🌐 TRANSLATED:",
-                text,
-                "=>",
-                translatedText
-            );
-
-        } catch (translationError) {
-            console.error(
-                "Hindi translation failed:",
-                translationError.message
-            );
-
-            // Keep original if translation fails
-            translatedText = text;
-        }
-
-        const meeting =
-            await Meeting.findOne({
-                meetingId
-            });
+        const meeting = await Meeting.findOne({
+            meetingId
+        });
 
         if (!meeting) {
             console.log(
@@ -212,7 +190,22 @@ io.on("connection", (socket) => {
             return;
         }
 
-        const participant =
+        // Find speaker
+        const roomParticipants =
+            meetingParticipants.get(meetingId);
+
+        const socketParticipant =
+            roomParticipants
+                ? Array.from(
+                    roomParticipants.values()
+                ).find(
+                    (participant) =>
+                        Number(participant.uid) ===
+                        Number(uid)
+                )
+                : null;
+
+        const mongoParticipant =
             meeting.members?.find(
                 (member) =>
                     Number(member.uid) ===
@@ -220,15 +213,18 @@ io.on("connection", (socket) => {
             );
 
         const speaker =
-            participant?.name ||
-            data.name ||
-            "Unknown";
+            name ||
+            socketParticipant?.name ||
+            mongoParticipant?.name ||
+            (Number(uid) === 1 ? "Host" : "Unknown");
 
+        // Save original transcript immediately
         const transcriptItem = {
             uid: Number(uid),
             speaker,
-            text: translatedText,
+            text: text,
             originalText: text,
+            sentenceId: sentenceId || null,
             timestamp: new Date()
         };
 
@@ -238,29 +234,27 @@ io.on("connection", (socket) => {
 
         await meeting.save();
 
-        // Send TRANSLATED text to everyone
+        // Send immediately to everyone
         io.to(meetingId).emit(
             "transcript",
             {
                 meetingId,
                 uid: Number(uid),
                 speaker,
-                text: translatedText,
+                text,
                 originalText: text,
-                timestamp:
-                    transcriptItem.timestamp,
+                timestamp: transcriptItem.timestamp,
                 sentenceId
             }
         );
 
     } catch (error) {
         console.error(
-            " Transcript socket error:",
+            "Transcript socket error:",
             error
         );
     }
 });
-
 
   socket.on("disconnect", () => {
     console.log("Client Disconnected:", socket.id);
@@ -317,4 +311,4 @@ mongoose
   })
   .catch((err) => {
     console.error("MongoDB connection error:", err);
-  });
+  })

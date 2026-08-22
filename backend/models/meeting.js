@@ -40,30 +40,40 @@ const memberSchema = new mongoose.Schema({
 
 
 const transcriptSchema = new mongoose.Schema(
-    {
-        uid: {
-            type: Number,
-            required: true,
-        },
-
-        speaker: {
-            type: String,
-            required: true,
-        },
-
-        text: {
-            type: String,
-            required: true,
-        },
-
-        timestamp: {
-            type: Date,
-            default: Date.now,
-        },
+  {
+    uid: {
+      type: Number,
+      required: true,
     },
-    {
-        _id: false,
-    }
+
+    speaker: {
+      type: String,
+      required: true,
+    },
+
+    text: {
+      type: String,
+      required: true,
+    },
+
+    originalText: {
+      type: String,
+      default: "",
+    },
+
+    sentenceId: {
+      type: String,
+      default: null,
+    },
+
+    timestamp: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  {
+    _id: false,
+  }
 );
 
 
