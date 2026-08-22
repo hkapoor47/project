@@ -58,55 +58,78 @@ function containsDevanagari(text) {
 }
 
 async function translateHindiToEnglish(text) {
- 
+  // English / Roman text → DON'T TRANSLATE
   if (!containsDevanagari(text)) {
     return text;
   }
 
+  // No translation service configured
   if (!TRANSLATION_SERVICE_URL) {
     console.warn(
-      "TRANSLATION_SERVICE_URL is not configured; using original Hindi transcript"
+      "LIBRETRANSLATE_URL is not configured"
     );
+
     return text;
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
+
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, 30000);
 
   try {
     const response = await fetch(
       `${TRANSLATION_SERVICE_URL.replace(/\/$/, "")}/translate`,
       {
         method: "POST",
+
         headers: {
           "Content-Type": "application/json",
         },
+
         body: JSON.stringify({
           q: text,
           source: "hi",
           target: "en",
           format: "text",
         }),
+
         signal: controller.signal,
       }
     );
 
     if (!response.ok) {
-      throw new Error(`Translation service returned ${response.status}`);
+      throw new Error(
+        `Translation service returned ${response.status}`
+      );
     }
 
     const result = await response.json();
-    const translatedText = String(result.translatedText || "").trim();
+
+    const translatedText = String(
+      result.translatedText || ""
+    ).trim();
 
     if (!translatedText) {
-      throw new Error("Translation service returned an empty translation");
+      throw new Error(
+        "Translation service returned empty translation"
+      );
     }
 
     return translatedText;
+
   } catch (error) {
-    
-    console.error("Hindi translation failed; using original transcript:", error.message);
+
+    console.error(
+      "Hindi translation failed:",
+      error.message
+    );
+
+    // VERY IMPORTANT:
+    // Translation failure must NOT kill transcript.
     return text;
+
   } finally {
     clearTimeout(timeout);
   }
@@ -220,77 +243,203 @@ io.on("connection", (socket) => {
     socket.to(meetingId).emit("meeting-ended");
   });
 
-  socket.on("transcript", async (data) => {
-    try {
-      const meetingId = data?.meetingId;
-      const uid = Number(data?.uid);
-      const originalText = String(data?.text || "")
-        .replace(/\s+/g, " ")
-        .trim();
+ socket.on("transcript", async (data) => {
+  try {
+    const meetingId = data?.meetingId;
+    const uid = Number(data?.uid);
 
-      if (!meetingId || !Number.isFinite(uid) || !originalText) {
-        return;
-      }
+    const originalText = String(data?.text || "")
+      .replace(/\s+/g, " ")
+      .trim();
 
-      const dedupKey = data.sentenceId
-        ? `${meetingId}:${uid}:${data.sentenceId}`
-        : `${meetingId}:${uid}:${originalText.toLowerCase()}`;
-
-      if (transcriptHistory.has(dedupKey)) {
-        return;
-      }
-
-      transcriptHistory.set(dedupKey, Date.now());
-
-      for (const [key, timestamp] of transcriptHistory) {
-        if (Date.now() - timestamp > 60000) {
-          transcriptHistory.delete(key);
-        }
-      }
-
-      const meeting = await Meeting.findOne({ meetingId });
-
-      if (!meeting) {
-        console.log("Transcript meeting not found:", meetingId);
-        return;
-      }
-
-      let speaker = null;
-
-      if (uid === 1 && meeting.hostId) {
-        const host = await User.findById(meeting.hostId).select("name email");
-        speaker = host?.name || host?.email || null;
-      }
-
-      if (!speaker && Array.isArray(meeting.members)) {
-        const member = meeting.members.find(
-          (candidate) => Number(candidate.uid) === uid
-        );
-        speaker = member?.name || member?.email || null;
-      }
-
-      speaker ||= `Participant ${uid}`;
-
-      const text = await translateHindiToEnglish(originalText);
-
-      const transcriptData = {
-        meetingId,
-        uid,
-        speaker,
-        text,
-        timestamp: new Date(),
-      };
-
-      meeting.transcript ||= [];
-      meeting.transcript.push(transcriptData);
-      await meeting.save();
-
-      console.log("Transcript saved:", transcriptData);
-      io.to(meetingId).emit("transcript", transcriptData);
-    } catch (error) {
-      console.error("Transcript socket error:", error);
+    if (!meetingId || !Number.isFinite(uid) || !originalText) {
+      return;
     }
-  });
+
+    // -----------------------------
+    // 1. DEDUPLICATION
+    // -----------------------------
+
+    const dedupKey = data.sentenceId
+      ? `${meetingId}:${uid}:${data.sentenceId}`
+      : `${meetingId}:${uid}:${originalText.toLowerCase()}`;
+
+    if (transcriptHistory.has(dedupKey)) {
+      return;
+    }
+
+    transcriptHistory.set(dedupKey, Date.now());
+
+    // Clean old deduplication entries
+    const now = Date.now();
+
+    for (const [key, timestamp] of transcriptHistory) {
+      if (now - timestamp > 60000) {
+        transcriptHistory.delete(key);
+      }
+    }
+
+    // -----------------------------
+    // 2. FIND MEETING
+    // -----------------------------
+
+    const meeting = await Meeting.findOne({ meetingId });
+
+    if (!meeting) {
+      console.log(
+        "Transcript meeting not found:",
+        meetingId
+      );
+      return;
+    }
+
+    // -----------------------------
+    // 3. FIND SPEAKER
+    // -----------------------------
+
+    let speaker = null;
+
+    if (uid === 1 && meeting.hostId) {
+      const host = await User.findById(meeting.hostId)
+        .select("name email");
+
+      speaker = host?.name || host?.email || null;
+    }
+
+    if (!speaker && Array.isArray(meeting.members)) {
+      const member = meeting.members.find(
+        (candidate) => Number(candidate.uid) === uid
+      );
+
+      speaker = member?.name || member?.email || null;
+    }
+
+    speaker ||= `Participant ${uid}`;
+
+    // -----------------------------
+    // 4. SAVE ORIGINAL TRANSCRIPT
+    //    IMMEDIATELY
+    // -----------------------------
+
+    const transcriptData = {
+      meetingId,
+      uid,
+      speaker,
+      text: originalText,
+      timestamp: new Date(),
+    };
+
+    meeting.transcript ||= [];
+
+    meeting.transcript.push(transcriptData);
+
+    await meeting.save();
+
+    console.log(
+      "Transcript saved:",
+      transcriptData
+    );
+
+    // -----------------------------
+    // 5. SEND ORIGINAL TRANSCRIPT
+    //    TO FRONTEND IMMEDIATELY
+    // -----------------------------
+
+    io.to(meetingId).emit(
+      "transcript",
+      transcriptData
+    );
+
+    // -----------------------------
+    // 6. TRANSLATE SEPARATELY
+    // -----------------------------
+
+    if (containsDevanagari(originalText)) {
+
+      translateHindiToEnglish(originalText)
+        .then(async (translatedText) => {
+
+          // Translation failed or returned
+          // same Hindi text
+          if (
+            !translatedText ||
+            translatedText === originalText
+          ) {
+            return;
+          }
+
+          // Find the same meeting again
+          const updatedMeeting =
+            await Meeting.findOne({ meetingId });
+
+          if (!updatedMeeting) {
+            return;
+          }
+
+          // Find the transcript we just saved
+          const transcriptIndex =
+            updatedMeeting.transcript.findIndex(
+              (item) =>
+                Number(item.uid) === uid &&
+                item.text === originalText
+            );
+
+          if (transcriptIndex === -1) {
+            console.log(
+              "Transcript entry not found for translation"
+            );
+            return;
+          }
+
+          // Replace Hindi with English
+          updatedMeeting.transcript[
+            transcriptIndex
+          ].text = translatedText;
+
+          await updatedMeeting.save();
+
+          console.log(
+            "Hindi transcript translated:",
+            {
+              original: originalText,
+              translated: translatedText,
+            }
+          );
+
+          // Send translated version
+          // to frontend
+          io.to(meetingId).emit(
+            "transcript-translated",
+            {
+              meetingId,
+              uid,
+              speaker,
+              originalText,
+              text: translatedText,
+              timestamp:
+                updatedMeeting.transcript[
+                  transcriptIndex
+                ].timestamp,
+            }
+          );
+
+        })
+        .catch((error) => {
+          console.error(
+            "Background translation error:",
+            error.message
+          );
+        });
+    }
+
+  } catch (error) {
+    console.error(
+      "Transcript socket error:",
+      error
+    );
+  }
+});
+
 
   socket.on("disconnect", () => {
     console.log("Client Disconnected:", socket.id);

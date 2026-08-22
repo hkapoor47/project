@@ -7,7 +7,7 @@ async function translateTranscript(text) {
 
     try {
         const response = await axios.post(
-            `${process.env.LIBRETRANSLATE_URL}/translate`,
+            `${process.env.LIBRETRANSLATE_URL}`,
             {
                 q: text,
                 source: "auto",
