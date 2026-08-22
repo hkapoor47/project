@@ -58,8 +58,7 @@ function containsDevanagari(text) {
 }
 
 async function translateHindiToEnglish(text) {
-  // Non-Hindi captions must pass through unchanged. This also avoids an
-  // unnecessary request for English speech.
+ 
   if (!containsDevanagari(text)) {
     return text;
   }
@@ -105,7 +104,7 @@ async function translateHindiToEnglish(text) {
 
     return translatedText;
   } catch (error) {
-    // Never lose a caption when the translation service is temporarily down.
+    
     console.error("Hindi translation failed; using original transcript:", error.message);
     return text;
   } finally {
